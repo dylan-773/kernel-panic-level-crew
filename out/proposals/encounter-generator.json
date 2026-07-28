@@ -1,0 +1,52 @@
+{
+  "agent": "encounter-generator",
+  "brief": "level-6",
+  "notes": "Day 6's jobTiers are 3,3,3, one distinct tier, so tier coverage only needs one customer whose tiers include 3. All three cover it anyway, on purpose, since the day itself is a wall of same weight work with no spike: Talia Vance at 2,3, Emmett Cho at 3,4, Priya Osei at 3,4. Dominants are spread across the three attack and defend families that read as personality rather than repeated pressure: redirect (the reef controller reroutes feed lines, a navigation betrayal), armSiphon (the amp rig drains neighboring rigs, a hungry device), purge (the embroidery frame erases stitched names overnight, a device that deletes what it does not like). No two customers share a dominant, so day 6 does not read as one fight three times even though every ticket sits at the same tier.",
+  "items": [
+    {
+      "type": "customer",
+      "id": "talia-vance",
+      "name": "Talia Vance",
+      "device": "Aqualume reef tank controller",
+      "portrait": "/assets/px/portraits/cust-02.png",
+      "quotes": [
+        "It keeps rerouting the saltwater feed into my freshwater tank at 3am.",
+        "The tetras are gone now. Last night it started aiming at the reef tank too."
+      ],
+      "winLine": "Water is running to the right tanks again. The reef looks almost embarrassed it ever doubted me.",
+      "lossLine": "The reef tank answers to somebody else's schedule now.",
+      "tiers": [2, 3],
+      "dominant": "redirect"
+    },
+    {
+      "type": "customer",
+      "id": "emmett-cho",
+      "name": "Emmett Cho",
+      "device": "Feedrail busking amp rig",
+      "portrait": "/assets/px/portraits/cust-04.png",
+      "quotes": [
+        "It pulls charge off every rig on the block the second I start playing.",
+        "Last night it drained my partner's amp dead mid set, just so I could play louder."
+      ],
+      "winLine": "It draws its own charge now, nothing more. The whole block has power again.",
+      "lossLine": "Every amp on that block answers to it now.",
+      "tiers": [3, 4],
+      "dominant": "armSiphon"
+    },
+    {
+      "type": "customer",
+      "id": "priya-osei",
+      "name": "Priya Osei",
+      "device": "Loomgate embroidery frame",
+      "portrait": "/assets/px/portraits/cust-06.png",
+      "quotes": [
+        "It unstitches names overnight. I open the shop to blank collars.",
+        "This morning it took the groom's own initials off his jacket, hours before the wedding."
+      ],
+      "winLine": "Every initial holds now. He walks in with his name still on him.",
+      "lossLine": "The jacket came back blank. It kept the name, not the shirt.",
+      "tiers": [3, 4],
+      "dominant": "purge"
+    }
+  ]
+}

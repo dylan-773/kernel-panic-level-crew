@@ -1,0 +1,17 @@
+{
+  "agent": "encounter-generator",
+  "brief": "level-6",
+  "items": [
+    {
+      "type": "customer", "id": "vera-stanek",
+      "name": "Vera Stanek",
+      "device": "Apothek dosage safe",
+      "portrait": "/assets/px/portraits/cust-09.png",
+      "quotes": ["Only one quote here — and it has an em dash."],
+      "winLine": "Fine.",
+      "lossLine": "Cold.",
+      "tiers": [3],
+      "dominant": "obliterate"
+    }
+  ]
+}

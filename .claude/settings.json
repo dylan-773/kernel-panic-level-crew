@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 tools/verify_level.py:*)",
+      "Bash(python3 ./tools/verify_level.py:*)"
+    ]
+  }
+}

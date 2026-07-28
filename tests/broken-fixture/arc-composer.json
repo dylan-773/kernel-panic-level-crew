@@ -1,0 +1,23 @@
+{
+  "agent": "arc-composer",
+  "brief": "level-6",
+  "items": [
+    {
+      "type": "dayconfig-delta", "id": "day-6", "day": 6,
+      "set": {
+        "grid": [11, 8],
+        "oppRam": 7,
+        "greed": 1.4,
+        "abilityFreq": 0.6,
+        "minCost": 20,
+        "headStart": 2,
+        "parFlat": 3,
+        "slag": 0.22,
+        "patchDrop": 0.16,
+        "jobTiers": [3, 3, 4]
+      },
+      "targetWinPct": 56,
+      "rationale": "test fixture"
+    }
+  ]
+}
