@@ -13,9 +13,9 @@ have to agree with each other:
 1. the day's **difficulty configuration** — grid size, the intrusion's RAM
    pool, how greedily it pushes for the core, how deep it already sits when you
    link in, and the difficulty tier of each of the three tickets
-2. the **customers** whose tickets fill those tiers — a person, a haunted
-   device, the intrusion's dominant mode, and the lines they say at the counter
-   before and after you dive
+2. the **customers** whose tickets fill those tiers — a person, the machine
+   they brought in, the dominant mode of the intrusion inside it, and the lines
+   they say at the counter before and after you dive
 3. the **day line** that opens the day on the terminal
 4. a **DAD.LOG journal entry** unlocked around that point in the run
 

@@ -56,7 +56,7 @@ Never reuse a name, a device concept, or a verbal tic from this roster.
 
 | id | name | device | tiers | dominant | the hook |
 |---|---|---|---|---|---|
-| juno-vex | Juno Vex | Hexlight arcade handheld | 1,2 | armSiphon | a ghost second player keeps setting records |
+| juno-vex | Juno Vex | Hexlight arcade handheld | 1,2 | armSiphon | a second player with no cart and no link keeps setting records |
 | sable-okonkwo | Sable Okonkwo | Kestrel courier drone | 1,2 | redirect | something rewrites her routes and looks proud of it |
 | aldous-wick | Aldous Wick | Meridian ledger terminal | 1,2,3 | armHalt | forty years of books that bite the hand that files |
 | wren-tallis | Wren Tallis | studio master ledger | 1,2 | ward | something hides her tracks and plays hide and seek |
