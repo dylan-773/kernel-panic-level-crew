@@ -1,14 +1,23 @@
 # Checks
 
-Run in this order. The first one gates the rest.
+These two need nothing but the repo, and are the ones to run first:
 
 ```bash
-node    tools/check_bare.mjs                        # the engine is a grid, RAM and turns
-bunx    tsc --noEmit                                # engine typechecks under strict
-python3 tools/verify_dive.py                        # proposal structure and ranges
+node tools/check_bare.mjs      # the engine is a grid, RAM and turns
+bunx tsc --noEmit              # the engine typechecks under strict
+```
+
+`check_bare.mjs` gates everything else. Do not author a dive on an engine that
+can cast.
+
+The rest operate on a run's output, so they need a `/make-dive` to have
+happened first. `out/` ships empty:
+
+```bash
+python3 tools/verify_dive.py                                # proposal structure and ranges
 python3 tools/verify_dive.py --day-check out/dive-hard.json
 node    tools/simulate.mjs out/dive-hard.json --seeds 200
-python3 tools/build_play.py out/dive-hard.json      # rebuild the playable page
+python3 tools/build_play.py out/dive-hard.json              # rebuild the playable page
 ```
 
 `tests/broken-fixture/` holds proposals with deliberate defects: an even grid

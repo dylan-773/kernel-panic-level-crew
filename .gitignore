@@ -3,3 +3,16 @@ __pycache__/
 *.pyc
 
 node_modules/
+bun.lock
+package.json
+
+# /make-dive writes everything here. The folder ships empty so the first run
+# starts from a clean slate; only the directory skeleton is tracked.
+out/*
+!out/.gitkeep
+!out/proposals/
+!out/gate/
+out/proposals/*
+!out/proposals/.gitkeep
+out/gate/*
+!out/gate/.gitkeep

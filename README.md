@@ -56,8 +56,8 @@ Headless:
 claude -p "/make-dive hard 13x11" --permission-mode acceptEdits
 ```
 
-A completed run is committed under `out/`, so you can open a dive and play it
-without spending a token.
+`out/` ships empty. Everything in it is generated, so the first run starts from
+a clean slate and nothing you see there was authored by hand.
 
 ---
 
@@ -194,34 +194,31 @@ bun build engine/browser-entry.ts --outfile=play/engine.bundle.js \
 
 ---
 
-## The committed run: `/make-dive hard 13x11`
+## What a run produces
 
-Everything under `out/` is a real run against the bare engine.
+`out/` ships empty. `/make-dive hard 13x11` fills it with seven files:
 
-| knob | value | owner |
-|---|---|---|
-| grid | 13x11 | board-architect |
-| slag | 0.18 | board-architect |
-| minCost / minPd | 26 / 8 | board-architect |
-| playerRam | 5 | pressure-designer |
-| oppRam | 7 | pressure-designer |
-| greed | 0.85 | pressure-designer |
-| headStart | 2 | pressure-designer |
-
-**Claimed 32%. Measured 31.5%** over 200 seeds, a drift of half a point,
-centred in the 28-40% band `hard` asks for. Average rounds 2.3. Endings: core
-196, gridlock 2, severed 2.
-
-Both items approved. The gate did catch the Board Architect overstating its own
-source, claiming 13x11 runs "2.9-3.1 rounds regardless of pressure" when the
-row actually chosen measures 2.3, and said so without failing the item, since
-the grid was mandated by the invocation rather than chosen.
-
-Play it:
-
-```bash
-open out/play-hard.html
 ```
+out/BRIEF.md                        the brief, written by the orchestrator
+out/proposals/board-architect.json  grid, slag, route length
+out/proposals/pressure-designer.json  RAM, greed, head start, claimed win rate
+out/dive-hard.json                  the two proposals assembled
+out/sim.txt                         200 dives, measured
+out/gate/review.md                  APPROVE / REVISE per item
+out/play-hard.html                  open this and play
+```
+
+For reference, that invocation during development produced a 13x11 board at
+slag 0.18, `playerRam` 5 against `oppRam` 7, greed 0.85, head start 2. The
+Pressure Designer **claimed 32% and the simulator measured 31.5%** over 200
+seeds, centred in the 28-40% band `hard` asks for, at 2.3 rounds average.
+
+Both items were approved, but the gate still caught the Board Architect
+overstating its own source: its rationale claimed 13x11 runs "2.9-3.1 rounds
+regardless of pressure" when the row actually chosen measures 2.3. It recorded
+that without failing the item, since the grid had been mandated by the
+invocation rather than chosen. Your run will differ; the agents are not
+deterministic.
 
 ---
 
@@ -249,7 +246,7 @@ kernel-panic-level-crew/
     verify_dive.py              structure and ranges
     simulate.mjs                200 dives, measured win rate
     build_play.py               inlines everything into one openable file
-  out/                          a completed run, including a playable dive
+  out/                          empty; every run writes here, all of it ignored
 ```
 
 ---
