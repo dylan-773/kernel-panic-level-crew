@@ -38,7 +38,7 @@ Requires Claude Code. Nothing else — no `pip install`, no `ANTHROPIC_API_KEY`,
 no network services.
 
 ```bash
-cd level-crew
+cd kernel-panic-level-crew
 claude
 ```
 
@@ -53,7 +53,7 @@ Any day from 1 to 9. Day 10 is the game's scripted finale and is out of scope.
 Headless, if you would rather not sit in the session:
 
 ```bash
-cd level-crew
+cd kernel-panic-level-crew
 claude -p "/make-level 6" --permission-mode acceptEdits
 ```
 
@@ -274,7 +274,7 @@ verify_level.py: level in out/proposals/
 ## Layout
 
 ```
-level-crew/
+kernel-panic-level-crew/
   README.md                     this file
   ARCHITECTURE.md               diagram, data-flow rationale, failure paths
   CLAUDE.md                     orients the orchestrator session
