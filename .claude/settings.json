@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python3 tools/verify_dive.py:*)",
       "Bash(python3 tools/build_play.py:*)",
-      "Bash(node tools/simulate.mjs:*)"
+      "Bash(node tools/simulate.mjs:*)",
+      "Bash(node tools/check_bare.mjs:*)"
     ]
   }
 }

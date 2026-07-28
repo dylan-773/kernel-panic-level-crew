@@ -17,9 +17,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { createRequire } from "node:module";
 
-const require_ = createRequire(import.meta.url);
 const here = path.dirname(new URL(import.meta.url).pathname);
 const root = path.resolve(here, "..");
 
@@ -28,8 +26,8 @@ const bundlePath = path.join(root, "play", "engine.bundle.js");
 if (!fs.existsSync(bundlePath)) {
   console.error(
     `engine bundle missing at ${bundlePath}\n` +
-      `rebuild it with:  bun build engine/index.ts --outfile=play/engine.bundle.js ` +
-      `--format=iife --target=browser --global-name=KP`,
+      `rebuild it with:  bun build engine/browser-entry.ts ` +
+      `--outfile=play/engine.bundle.js --format=iife --target=browser`,
   );
   process.exit(1);
 }
@@ -59,7 +57,7 @@ const PROXY_GREED = 0.95;
 
 /** One dive, played to the end by the engine's routing bot. */
 function playOne(seed) {
-  const s = KP.createDuel(cfg, seed, KP.BASE_KIT, spec.playerRam);
+  const s = KP.createDuel(cfg, seed, spec.playerRam);
   let guard = 0;
 
   // The engine mutates in place here rather than going through the reducer.

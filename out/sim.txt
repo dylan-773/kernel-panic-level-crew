@@ -1,6 +1,6 @@
 simulate: hard  (200 seeds)
-  grid 13x11, player RAM 5, opp RAM 6, greed 0.85, head start 2
-  win rate    34.0%   (68/200)
-  target      37%   drift -3.0
-  avg rounds  2.8
-  endings     core 195, gridlock 1, severed 4
+  grid 13x11, player RAM 5, opp RAM 7, greed 0.85, head start 2
+  win rate    31.5%   (63/200)
+  target      32%   drift -0.5
+  avg rounds  2.3
+  endings     core 196, gridlock 2, severed 2

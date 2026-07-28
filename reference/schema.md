@@ -87,9 +87,9 @@ what `tools/simulate.mjs` measures.
 ## What is deliberately not in here
 
 A dive has no programs, no abilities, no augments, no loadout, no customer,
-no story. The engine supports all of that and the crew switches every bit of
-it off: `abilityFreq` is pinned to 0 and the player always carries the base
-kit, so neither side can cast anything.
+no story. None of that is switched off in `engine/`. It is **deleted**: there
+is no code there that casts a mode, plants a trap, locks a junction or spends
+an augment, so there is no configuration that could produce one.
 
 What is left is the thing underneath: **a grid of junctions, RAM, and turns.**
 You rotate a junction, your signal floods through whatever arms now line up

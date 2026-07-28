@@ -265,7 +265,7 @@
   function start(newSeed) {
     clearTimeout(oppTimer);
     seed = newSeed;
-    state = KP.createDuel(cfg, seed, KP.BASE_KIT, spec.playerRam);
+    state = KP.createDuel(cfg, seed, spec.playerRam);
     setText("seed", seed);
     render();
     pumpOpponent();

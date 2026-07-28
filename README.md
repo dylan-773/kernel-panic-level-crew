@@ -122,10 +122,10 @@ size its numbers against.
 **In:** the Board Architect's grid.
 **Out:** `playerRam`, `oppRam`, `greed`, `headStart`, and a `targetWinPct`.
 
-Decides the race. `oppRam` is the strongest lever in the file, worth roughly
-15 to 20 points of win rate per point. `headStart` is second and compounds
-with it, because ground SIG-0 already holds also shortens its route. Then it
-commits to a number, which the simulator immediately checks.
+Decides the race. `oppRam` is the strongest lever, worth 10 to 20 points of win
+rate per point. `headStart` is second and compounds with it, because ground
+SIG-0 already holds also shortens its route. Then it commits to a number, which
+the simulator immediately checks.
 
 **Remove it and:** there is a board with no contest on it.
 
@@ -145,33 +145,45 @@ A verdict it cannot support drops to an advisory NOTE.
 
 ---
 
-## Two kinds of checking
+## Four kinds of checking
 
-| | `verify_dive.py` | `simulate.mjs` | Dive Gate |
-|---|---|---|---|
-| asks | is it well formed? | is it a contest? | is it worth playing? |
-| kind | stdlib Python | the real engine, 200 dives | an agent with judgment |
-| catches | bad ranges, even grid dimensions, out-of-scope keys | unwinnable, uncontested, or off-target dives | double-counted levers, a bad claim, a dive over in two rounds |
+| | `check_bare.mjs` | `verify_dive.py` | `simulate.mjs` | Dive Gate |
+|---|---|---|---|---|
+| asks | is the engine still bare? | is the spec well formed? | is it a contest? | is it worth playing? |
+| kind | static grep + 300 played dives | stdlib Python | the engine, 200 dives | an agent with judgment |
+| catches | any program, trap or cast code reaching back into `engine/` | out-of-range knobs, even grid dimensions, out-of-scope keys | unwinnable, uncontested, or off-target dives | double-counted levers, a bad claim, a dive over in two rounds |
+| verdict | exit 0 / exit 1 naming the file and line | exit 0 / exit 1 | exit 0 / exit 1 with the measured number | APPROVE, REVISE citing a number, or NOTE |
 
-`simulate.mjs` plays the dive with `botPlayTurn`, the engine's own routing bot,
-at the same greed the shipped game uses to calibrate its difficulty curve. A
-win rate printed here means the same thing as a win rate in the game's own
-balance table, rather than a number from a bot this repo invented.
+`simulate.mjs` plays the dive with `botPlayTurn`, the engine's own
+route-following bot, at greed 0.95. Every row of `reference/difficulty.md` was
+measured the same way, so the agents argue from numbers this repo can
+reproduce on demand rather than from intuition.
+
+`check_bare.mjs` runs first, before any agent is spawned. A dive authored on an
+engine that can cast is not a dive, so the run stops there.
 
 ---
 
-## The engine is the real one
+## The engine has nothing but the grid
 
-`engine/` is the shipped game's duel engine, vendored whole and unmodified:
-board generation, flood and claim, cascade resolution, route planning, and the
-opponent AI. It has no external dependencies, so it bundles to 58 KB of plain
-JavaScript that runs in a browser with no framework.
+`engine/` is the shipped game's duel engine with everything that is not a
+rotation race **deleted**: no programs, no modes, no traps, no locks, no wards,
+no augments, no patch pieces, no program tiers. 2836 lines became 1394. What
+remains is board generation, flood and claim, cascade resolution, the
+rotation-cost router, and the opponent's route planner. No external
+dependencies, so it bundles to 26 KB of plain JavaScript.
 
-The dive spec pins the program layer off. `abilityFreq` is hard zero and the
-player always carries the base kit, so neither side can cast anything and what
-remains is the rotation race underneath. `engine/index.ts` is the only place
-that mapping lives, so a malformed spec cannot accidentally hand SIG-0 an
-ability.
+That deletion is the design, and it was learned the hard way. The first version
+vendored the engine whole and switched the program layer off by configuration:
+`abilityFreq: 0`. That looked right and was not. `abilityFreq` gates only one of
+five cast rules in the opponent's planner, so the intrusion cast REDIRECT in 49
+of 60 dives. Configuration was never going to hold, because the capability was
+still sitting in the codebase waiting for a mistake.
+
+So there is no cast path left to misconfigure, and `tools/check_bare.mjs` keeps
+it that way. The board's SVG rendering and every `kp-d*` style still come from
+the shipped game, so a generated dive looks like the real board rather than a
+mock of it.
 
 Rebuild the browser bundle after any engine change:
 
@@ -180,15 +192,11 @@ bun build engine/browser-entry.ts --outfile=play/engine.bundle.js \
   --format=iife --target=browser
 ```
 
-The board's SVG rendering and every `kp-d*` style is lifted from the shipped
-game too, so a generated dive looks like the real board rather than a mock of
-it.
-
 ---
 
 ## The committed run: `/make-dive hard 13x11`
 
-Everything under `out/` is a real run.
+Everything under `out/` is a real run against the bare engine.
 
 | knob | value | owner |
 |---|---|---|
@@ -196,26 +204,18 @@ Everything under `out/` is a real run.
 | slag | 0.18 | board-architect |
 | minCost / minPd | 26 / 8 | board-architect |
 | playerRam | 5 | pressure-designer |
-| oppRam | 6 | pressure-designer |
+| oppRam | 7 | pressure-designer |
 | greed | 0.85 | pressure-designer |
 | headStart | 2 | pressure-designer |
 
-**Claimed 37%. Measured 34.0%** over 200 seeds, a drift of 3 points, inside
-the 30-40% band `hard` asks for. Endings: core 195, severed 4, gridlock 1.
+**Claimed 32%. Measured 31.5%** over 200 seeds, a drift of half a point,
+centred in the 28-40% band `hard` asks for. Average rounds 2.3. Endings: core
+196, gridlock 2, severed 2.
 
-The gate approved both items and raised one advisory NOTE it deliberately did
-not assign: average rounds measured 2.8, under the 3-to-6 band. Its reasoning
-is worth reading, because it is the kind of call a schema check cannot make:
-
-> the only calibrated 13x11 row in the hard win-rate band is also the one with
-> the shortest rounds; the neighboring rows that run longer land at 53.3% win
-> rate, outside the target. Advisory only, no better calibrated lever
-> combination exists in the table for this board size, so there is nothing
-> actionable to hand back.
-
-The Pressure Designer had already flagged the same tension in its rationale
-before the simulator ran. Nothing was handed back, and the dive ships slightly
-quick with that recorded rather than hidden.
+Both items approved. The gate did catch the Board Architect overstating its own
+source, claiming 13x11 runs "2.9-3.1 rounds regardless of pressure" when the
+row actually chosen measures 2.3, and said so without failing the item, since
+the grid was mandated by the invocation rather than chosen.
 
 Play it:
 
@@ -259,11 +259,14 @@ kernel-panic-level-crew/
 The dive is the floor of the game: every other system in *Kernel Panic* sits on
 top of a rotation race, so it is the piece worth getting right first.
 
-- **Programs.** The engine already implements SCAN, ATTACK and DEFEND with six
-  modes between them. Unpinning `abilityFreq` and adding an agent that designs
-  the intrusion's mode kit turns the race into a fight.
-- **Loadout.** Eighteen augments ship in the engine. A loadout agent choosing
-  the player's answer to a given intrusion is the natural fourth seat.
+- **Programs.** The full game has SCAN, ATTACK and DEFEND with six modes
+  between them. Adding them back here means deliberately porting that code in
+  from the game and widening `check_bare.mjs`'s allowed vocabulary, which is a
+  decision someone has to make on purpose. That is the point of having deleted
+  it rather than disabled it.
+- **Loadout.** Eighteen augments exist in the full game. A loadout agent
+  choosing the player's answer to a given intrusion is the natural fourth seat,
+  once programs are back.
 - **Tuning loop.** The simulator currently reports and the gate assigns blame.
   Feeding the measured number straight back to the Pressure Designer and
   re-running until it converges makes the target self-correcting.

@@ -9,8 +9,9 @@ other, the core in the middle. Rotating a junction is the only move and costs
 neutral node it reaches. First flood to the core wins.
 
 **That is the entire game here.** A grid, RAM, and turns. No programs, no
-abilities, no loadout, no customer, no story, no desktop. The vendored engine
-supports all of that and the crew pins it off.
+abilities, no loadout, no customer, no story, no desktop. That code is not
+disabled in `engine/`, it is deleted, so no configuration can bring it back.
+`node tools/check_bare.mjs` enforces it and must stay green.
 
 You are the ORCHESTRATOR. Run `/make-dive <difficulty> [WxH]`. You spawn
 agents and carry their output between them; you never author content yourself.

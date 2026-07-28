@@ -5,7 +5,7 @@
  *
  * Build:
  *   bun build engine/browser-entry.ts --outfile=play/engine.bundle.js \
- *     --format=iife --target=browser --minify
+ *     --format=iife --target=browser
  */
 
 import { createDuel } from "./duel-setup";
@@ -14,7 +14,7 @@ import { canRotate, routeCost } from "./duel-power";
 import { endPlayerTurn } from "./duel-actions";
 import { botPlayTurn, oppStep } from "./opponent";
 import { rotateArms } from "./types";
-import { ROUND_CAP, BASE_KIT } from "./duel-types";
+import { ROUND_CAP } from "./duel-types";
 import { specToConfig } from "./index";
 
 (globalThis as unknown as { KP: unknown }).KP = {
@@ -25,11 +25,9 @@ import { specToConfig } from "./index";
   rotateArms,
   specToConfig,
   ROUND_CAP,
-  BASE_KIT,
   // Used by the simulator, not the browser. botPlayTurn is the engine's own
-  // routing bot; running it on the player side is exactly how the shipped
-  // game calibrates its difficulty curve, so our win rates are comparable to
-  // the game's published numbers rather than to a bot we invented.
+  // route-following bot; running it on the player side is how the dive's
+  // win rate gets measured.
   botPlayTurn,
   oppStep,
   endPlayerTurn,

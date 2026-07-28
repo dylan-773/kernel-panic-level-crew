@@ -1,16 +1,17 @@
 {
   "agent": "pressure-designer",
   "brief": "hard",
-  "notes": "Board is fixed at 13x11, slag 0.18, minCost 26 (=2x13) by the architect, so the 13x11 rows of the calibration table apply directly with no extrapolation needed.",
+  "notes": "Grid (13x11) is fixed by the Board Architect. This board has a direct row in the measured table at oppRam 6-7, headStart 2, so I'm reading off it rather than interpolating: oppRam 6/headStart 2 measures 49.3% (too high for the 28-40% band), oppRam 7/headStart 2 measures 32.0% (dead center of the band), oppRam 7/headStart 3 measures 20.7% (below the band). oppRam 7 + headStart 2 is the only measured combination on this exact grid that lands inside the target, so that's the pick, with greed left at the table's assumed 0.85 rather than nudged, since 32.0% already sits comfortably inside 28-40% with margin on both sides of the 15-point tolerance and pushing greed would add an untested variable on top of an already-good match. avg rounds for that row is 2.3, shorter than I'd like for a hard dive, but grid is out of my lane per the crew's division of labor -- 13x11 is already the largest of the rows that hit this win-rate target, and the alternative headStart-3 row that might buy a slightly longer read undershoots the win-rate band instead.",
   "items": [
     {
-      "type": "pressure", "id": "pressure",
+      "type": "pressure",
+      "id": "pressure",
       "playerRam": 5,
-      "oppRam": 6,
+      "oppRam": 7,
       "greed": 0.85,
       "headStart": 2,
-      "targetWinPct": 37,
-      "rationale": "Hard asks for 30-40%. The measured 13x11 row at oppRam 6 / headStart 2 gives 37.5% win rate, dropping straight into the band with no interpolation. The neighboring 13x11 rows confirm the levers needed to get there: oppRam 6 / headStart 0 (53.3%) and oppRam 5 / headStart 2 (53.3%) both land in the normal band instead, so both oppRam at 6 and headStart at 2 are required together, not either alone, matching the brief's compounding note. playerRam stays at 5 (shipped default) and greed stays at 0.85 (the table's baseline, competent but not merciless) since the exact row already lands on target. Avg rounds for this row measure 2.8, a touch under the 3-6 round guideline but the nearest available levers on this board (oppRam 6, headStart 2) are already the ones the table ties to the hard band; softening either would push win rate into the 45-53% range instead."
+      "targetWinPct": 32,
+      "rationale": "Table row 13x11 / oppRam 7 / headStart 2 measures 32.0% win rate at 2.3 avg rounds (reference/difficulty.md measured table), which is both the exact named-difficulty prescription for hard (oppRam 6-7, headStart 2, target 28-40%) and a direct hit on this grid with no interpolation needed. The adjacent row on the same grid, oppRam 6 / headStart 2, measures 49.3% and would blow past the target; oppRam 7 / headStart 3 measures 20.7% and undershoots it. playerRam stays at 5 (shipped default, and what every row in the table assumes) and greed stays at the table's 0.85 rather than being pushed toward merciless, since 32.0% already lands mid-band and greed is the fine adjustment, not the lever that should carry this claim. Claiming targetWinPct 32, the measured value itself, comfortably inside the simulator's 15-point tolerance around the 28-40% brief."
     }
   ]
 }

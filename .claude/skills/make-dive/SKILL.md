@@ -23,6 +23,17 @@ If no difficulty is given, default to `normal`.
 
 ---
 
+## 0. Confirm the engine is still bare
+
+```
+node tools/check_bare.mjs
+```
+
+A dive is a grid, RAM and turns. This asserts the program layer is absent from
+`engine/` rather than merely disabled, statically and by playing 300 dives.
+**If it fails, stop and report.** Do not author a dive on an engine that can
+cast, and never fix a failure here by widening the allowed vocabulary.
+
 ## 1. Brief
 
 Write `out/BRIEF.md`:

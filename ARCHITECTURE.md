@@ -77,9 +77,15 @@ them by playing the game rather than reasoning about it. Judgment goes to the
 agent, constrained by having to cite one of the other two.
 
 The scope check is in the Python because it is the rule most likely to erode.
-A dive is a grid, RAM and turns; a proposal carrying `augments`, `dominant`, or
-`abilityFreq` is reaching for a different game, and that is caught structurally
-rather than left to review.
+A dive is a grid, RAM and turns; a proposal carrying `augments` or `dominant`
+is reaching for a different game, and that is caught structurally rather than
+left to review.
+
+A fourth check guards the engine itself. `node tools/check_bare.mjs` asserts
+that the program layer is absent rather than disabled, statically and by
+playing 300 dives and watching what they emit. It exists because the first
+version of this repo tried to disable the program layer by configuration and
+shipped an intrusion that cast REDIRECT in 49 of 60 dives.
 
 ## Failure paths
 

@@ -1,11 +1,11 @@
-import { BASE_REACH } from "./content/kit";
-import { DuelCell, DuelPower, DuelState, Side, TrapKind, otherSide } from "./duel-types";
+import { BASE_REACH } from "./constants";
+import { DuelCell, DuelPower, DuelState, Side } from "./duel-types";
 import { DX, DY, cellIndex, oppositeDir, rotateArms } from "./types";
 
 /**
  * Flood-claim propagation and the rotation-cost route metric. The flood is
  * a mutating operation: every neutral node a side's signal reaches becomes
- * that side's territory. Traps stop the flood at the node they occupy.
+ * that side's territory.
  */
 
 export function effectiveDuelArms(c: DuelCell): number {
@@ -29,23 +29,14 @@ export interface FloodResult {
   reached: boolean[];
   /** Indexes claimed by this flood, in claim order. */
   claimed: number[];
-  /** Traps sprung on the flooding side this settle, in claim order. */
-  trapsFired: Array<{ idx: number; kind: TrapKind; drain: number }>;
   reachedCore: boolean;
 }
 
-/**
- * Run one side's flood, claiming neutral nodes it touches. A trapped
- * neutral node is claimed and consumes the trap. Traps are tempo hits
- * (a lost turn or a RAM drain), never walls: the cascade keeps
- * expanding past a sprung trap.
- */
+/** Run one side's flood, claiming every neutral node it touches. */
 export function runFlood(s: DuelState, side: Side): FloodResult {
   const start = side === "player" ? s.entryP : s.entryO;
-  const enemy = otherSide(side);
   const reached = new Array<boolean>(s.cells.length).fill(false);
   const claimed: number[] = [];
-  const trapsFired: Array<{ idx: number; kind: TrapKind; drain: number }> = [];
   let reachedCore = false;
 
   reached[start] = true;
@@ -70,21 +61,15 @@ export function runFlood(s: DuelState, side: Side): FloodResult {
         continue;
       }
       if (nc.kind === "node" && nc.owner === "none") {
-        // Claim it.
         nc.owner = side;
         nc.claimSeq = ++s.claimCounter;
         nc.claimWave = claimed.length;
         claimed.push(ni);
-        if (nc.trap && nc.trap.by === enemy) {
-          const trap = nc.trap;
-          nc.trap = null;
-          trapsFired.push({ idx: ni, kind: trap.kind, drain: trap.drain });
-        }
       }
       queue.push(ni);
     }
   }
-  return { reached, claimed, trapsFired, reachedCore };
+  return { reached, claimed, reachedCore };
 }
 
 export function computeDuelPower(s: DuelState): DuelPower {
@@ -124,10 +109,6 @@ export function computeDuelPower(s: DuelState): DuelPower {
 
 /** Min quarter-turns so the cell's arms cover `needed` (Infinity if never). */
 export function rotCostFor(c: DuelCell, needed: number): number {
-  if (c.fused) {
-    // Welded patch piece: its orientation is the only orientation.
-    return (rotateArms(c.base, c.rot) & needed) === needed ? 0 : Infinity;
-  }
   for (let k = 0; k < 4; k++) {
     if ((rotateArms(c.base, (c.rot + k) % 4) & needed) === needed) return k;
   }
@@ -198,7 +179,6 @@ export function routePlan(
       push(st, 0);
     }
   }
-  void n;
 
   // Best completed route: cost and the final (cell,dirIn) state.
   let bestGoal = Infinity;
@@ -324,12 +304,6 @@ export function isFrontier(s: DuelState, side: Side, idx: number): boolean {
   return false;
 }
 
-/** How many steps out from its territory a side may rotate open junctions. */
-export function reachOf(s: DuelState, side: Side): number {
-  if (side === "player" && s.kit.augments.includes("longArms")) return BASE_REACH + 2;
-  return BASE_REACH;
-}
-
 /**
  * Is this neutral node within `reach` steps of the side's territory,
  * walking only through open junctions? Depth 1 is the classic frontier;
@@ -338,17 +312,6 @@ export function reachOf(s: DuelState, side: Side): number {
 export function inReach(s: DuelState, side: Side, idx: number, reach: number): boolean {
   const c0 = s.cells[idx];
   if (c0.kind !== "node" || c0.owner !== "none") return false;
-  return withinReachWalk(s, side, idx, reach);
-}
-
-/** May this side fill this slag block with a patch cell (same reach walk)? */
-export function canPlace(s: DuelState, side: Side, idx: number): boolean {
-  const c0 = s.cells[idx];
-  if (!c0 || c0.kind !== "block") return false;
-  return withinReachWalk(s, side, idx, reachOf(s, side));
-}
-
-function withinReachWalk(s: DuelState, side: Side, idx: number, reach: number): boolean {
   const seen = new Set<number>([idx]);
   let frontier = [idx];
   for (let step = 1; step <= reach; step++) {
@@ -376,14 +339,11 @@ function withinReachWalk(s: DuelState, side: Side, idx: number, reach: number): 
   return false;
 }
 
-/** May this side rotate the node right now (reach rule + rotation locks)? */
+/** May this side rotate the node right now? Own territory, or within reach. */
 export function canRotate(s: DuelState, side: Side, idx: number): boolean {
   const c = s.cells[idx];
   if (!c || c.kind !== "node") return false;
-  if (c.fused) return false;
-  const enemy = otherSide(side);
-  if (c.lockedThroughRound >= s.round && c.lockedBy === enemy) return false;
   if (c.owner === side) return true;
   if (c.owner !== "none") return false;
-  return inReach(s, side, idx, reachOf(s, side));
+  return inReach(s, side, idx, BASE_REACH);
 }

@@ -1,7 +1,7 @@
 {
   "agent": "board-architect",
   "brief": "hard",
-  "notes": "Grid is fixed by the brief at 13x11 (explicit, given at invocation). Slag, minCost, minPd, and parFlat chosen to match the calibration table's 13x11 rows exactly, so the pressure-designer's oppRam/headStart tuning lands on a measured, trustworthy number rather than an extrapolated one.",
+  "notes": "Grid is explicit in the brief: 13x11. My job here is texture and route length, not difficulty — that lever belongs to the Pressure Designer.",
   "items": [
     {
       "type": "board",
@@ -11,7 +11,7 @@
       "minCost": 26,
       "minPd": 8,
       "parFlat": 3,
-      "rationale": "Grid is the brief's explicit ask (13x11), the largest of the three sizes in the calibration table: per the craft rules it gives the dive room to breathe and runs a round or two longer than 11x9. Slag stays at 0.18, the shipped default, because slag is texture and not a difficulty lever, and the measured 13x11 rows in reference/difficulty.md are all taken at slag 0.18 -- deviating from it would put the pressure-designer's win-rate target outside the table's calibrated ground truth. minCost is 26, exactly 2 x width as the table's baseline uses, which is the achievable ask for this size. With those settings, the table's 13x11/oppRam 6/headStart 2 row measures 37.5% win rate at 2.8 avg rounds -- squarely inside hard's 30-40% target band -- so the pressure-designer has a proven path to the target on this exact board rather than a guess. minPd is 8, roughly one and a half turns of the assumed playerRam 5, floored so a lucky rotation can't close the dive in one move on a board this large. parFlat is left at the cosmetic default of 3."
+      "rationale": "Grid is fixed by the brief at 13x11, the shape reference/difficulty.md calls 'large' and gives room to breathe: the measured table puts 13x11 near 2.9-3.1 avg rounds regardless of pressure, so this size buys the extra round or two a hard dive should run without anyone touching oppRam or headStart. slag stays at the shipped default 0.18 — the table's calibration note is explicit that slag is texture, not difficulty, so I'm not pushing it toward the 0.22 corridor-heavy end for a harder read; a hard dive should read like a normal board played by a sharper opponent, not a maze. minCost 26 follows the 'roughly 2x width' guidance (2x13) and is exactly the value the schema's own 13x11 example uses, so it's within the generator's reach. minPd 8 protects the opening at about 1.5x the assumed playerRam of 5 (1.5x5=7.5, rounded up), so no lucky rotation closes the core in a single turn before the race even starts. Handing the Pressure Designer a 13x11/26/8 board: per the named-difficulty table, hard (28-40%) is reached on this grid with oppRam 6-7 and headStart 2, e.g. the measured 13x11/oppRam7/headStart2 row at 32.0% win, 2.3 avg rounds."
     }
   ]
 }

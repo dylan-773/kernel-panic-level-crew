@@ -1,10 +1,8 @@
-import { PAR_FLAT, PAR_RATE } from "./content/kit";
-import { startOppTurn } from "./duel-actions";
-import { canPlace, routeCost, routePlan, runFlood, computeDuelPower } from "./duel-power";
+import { PAR_FLAT, PAR_RATE } from "./constants";
+import { computeDuelPower, routeCost, routePlan, runFlood } from "./duel-power";
 import {
   DuelCell,
   DuelConfig,
-  DuelKit,
   DuelState,
   PIECE_I,
   PIECE_L,
@@ -15,33 +13,14 @@ import {
 import { Rng, seedRng } from "./rng";
 import { cellIndex } from "./types";
 
-/**
- * Most nodes either flood can be handed for free before anyone moves. The
- * opening-dive teaching ladder is bounded by this same number, so it stays
- * exported rather than inline: when the two drifted apart, a quarter of
- * opening dives silently skipped the lesson that teaches rotation.
- */
+/** Most nodes either flood can be handed for free before anyone moves. */
 export const MAX_OPENING_CLAIM = 3;
-
-/** Deterministic seed mixer for per-duel seeds. */
-export function mixSeed(...parts: number[]): number {
-  let h = 0x811c9dc5;
-  for (const p of parts) {
-    let v = p | 0;
-    for (let i = 0; i < 4; i++) {
-      h ^= v & 0xff;
-      h = Math.imul(h, 0x01000193);
-      v >>>= 8;
-    }
-  }
-  return h >>> 0;
-}
 
 /**
  * Mostly two-arm pipe (corners and straights): each junction demands a real
  * orientation choice, random boards stay subcritical (no runaway free
- * chains), and route costs land in the arc table's band. Tees and crosses
- * are rare gifts.
+ * chains), and route costs land in a usable band. Tees and crosses are
+ * rare gifts.
  */
 function drawMask(rng: Rng): number {
   const v = rng.next();
@@ -58,14 +37,7 @@ function initialEcon(ramPerTurn: number, carryCap: number): SideEcon {
     carry: 0,
     carryCap,
     drainNext: 0,
-    loseNextTurn: false,
-    used: { scan: false, attack: false, defend: false },
-    attacksCast: 0,
-    scansCast: 0,
-    defendsCast: 0,
-    trapsFired: 0,
     rotations: 0,
-    placedThisTurn: false,
   };
 }
 
@@ -95,23 +67,17 @@ function buildCells(cfg: DuelConfig, rng: Rng): {
       const protectedCell =
         i === entryP || i === entryO || i === coreIdx ||
         near(i, entryP) < 2 || near(i, entryO) < 2 || near(i, coreIdx) < 2;
-      const slag = !protectedCell && rng.next() < (cfg.slag ?? (cfg.tutorial ? 0.12 : 0.18));
+      const slag = !protectedCell && rng.next() < (cfg.slag ?? 0.18);
       cells.push({
         x,
         y,
         kind: slag ? "block" : "node",
         base: slag ? 0 : drawMask(rng),
         rot: slag ? 0 : rng.int(4),
-        fused: false,
         spin: 0,
         owner: "none",
         claimSeq: 0,
         claimWave: 0,
-        trap: null,
-        lockedThroughRound: 0,
-        lockedBy: null,
-        wardThroughRound: 0,
-        wardBy: null,
       });
     }
   }
@@ -132,15 +98,14 @@ function buildCells(cfg: DuelConfig, rng: Rng): {
 }
 
 /**
- * Generate the duel: reject boards until both sides' rotation-cost routes
- * are finite, close in cost, near the day's target, and neither side's
- * opening flood grabs more than a toehold. The intrusion's head start is
- * applied afterwards: its first nodes arrive pre-claimed and pre-aligned.
+ * Generate the dive: reject boards until both sides' rotation-cost routes
+ * are finite, close in cost, near the target, and neither side's opening
+ * flood grabs more than a toehold. The intrusion's head start is applied
+ * afterwards: its first nodes arrive pre-claimed and pre-aligned.
  */
 export function createDuel(
   cfg: DuelConfig,
   seed: number,
-  kit: DuelKit,
   playerRamPerTurn: number,
   retry = 0,
 ): DuelState {
@@ -150,11 +115,8 @@ export function createDuel(
   let bestScore = Infinity;
   let loose: DuelState | null = null;
   let looseScore = Infinity;
-  let lastResort: DuelState | null = null;
-  let lastResortScore = Infinity;
   // Any fairness-passing board at all: the graceful floor when a rare seed
-  // cannot meet minPd. Ships maybe 2% of dives on floored days; the finale
-  // close-round histogram is the check that this stays rare.
+  // cannot meet minPd.
   let anyFair: DuelState | null = null;
   let anyFairScore = Infinity;
 
@@ -176,24 +138,16 @@ export function createDuel(
       round: 1,
       turn: "player",
       econ: { player: initialEcon(playerRamPerTurn, carryCap), opp: initialEcon(cfg.oppRam, 2) },
-      kit: { ...kit, augments: [...kit.augments] },
       oppNextIntent: null,
-      routeTrace: null,
       oppStartCost: 0,
       par: 0,
-      patchPouch: [...kit.patchPouch],
       severedStreak: 0,
-      strainChip: 0,
       rngState: seedRng(seed ^ 0x5f3759df),
       claimCounter: 0,
       fx: [],
       fxNext: 1,
       notice: null,
-      oppTurn: { started: false, pendingCast: null, queue: [], replans: 3, lastReplanCost: Infinity, ramAtStart: 0, aim: null },
-      oppDominantUsed: false,
-      lastPlayerHitRound: 0,
-      tutFlags: { scanned: false, purged: false, attacked: false },
-      tutorialLessonRound: 0,
+      oppTurn: { started: false, queue: [], replans: 3, lastReplanCost: Infinity, aim: null },
     };
 
     // Opening floods: whatever happens to align claims a toehold.
@@ -209,61 +163,23 @@ export function createDuel(
 
     const shorter = Math.min(pd, od);
     const score = Math.abs(shorter - cfg.minCost);
-    // The floor must survive the pouch too: a single piece bridging a slag
-    // wall from opening reach used to collapse pd 19 to 5, the exact
-    // trivialization this pass exists to end. Trial a cross at every
-    // initially reachable slag cell and floor the best shortcut as well.
-    let shortcutOk = true;
-    if (!cfg.tutorial && cfg.minPd !== undefined) {
-      let shortcut = pd;
-      for (let i = 0; i < s.cells.length && shortcut > cfg.minPd - 6; i++) {
-        if (!canPlace(s, "player", i)) continue;
-        const c = s.cells[i];
-        const prev = { kind: c.kind, base: c.base, rot: c.rot, fused: c.fused };
-        c.kind = "node";
-        c.base = PIECE_X;
-        c.rot = 0;
-        c.fused = true;
-        const after = routeCost(s, "player");
-        c.kind = prev.kind;
-        c.base = prev.base;
-        c.rot = prev.rot;
-        c.fused = prev.fused;
-        if (after < shortcut) shortcut = after;
-      }
-      shortcutOk = shortcut > cfg.minPd - 6;
-    }
-    // Tutorial boards want the longest player route the little grid can
-    // deal, purely for pacing: the seal-on-contact rule handles winnability,
-    // these tiers just keep the lesson from ending in one lucky turn.
+
     // A configured minPd is close to a guarantee: loose gives it 2 slack,
     // and only a seed that cannot manage even that ships an unfloored
     // board (anyFair), rather than crashing board generation outright.
-    const looseOk = cfg.tutorial
-      ? pd > playerRamPerTurn * 2 + 1
-      : shortcutOk && pd > Math.max(playerRamPerTurn, (cfg.minPd ?? 0) - 2);
+    const looseOk = pd > Math.max(playerRamPerTurn, (cfg.minPd ?? 0) - 2);
     if (looseOk && score < looseScore) {
       looseScore = score;
       loose = s;
-    } else if (!looseOk && cfg.tutorial && pd > playerRamPerTurn + 3 && score < lastResortScore) {
-      lastResortScore = score;
-      lastResort = s;
     }
-    if (!cfg.tutorial && score < anyFairScore) {
+    if (score < anyFairScore) {
       anyFairScore = score;
       anyFair = s;
     }
 
-    if (cfg.tutorial) {
-      // The machine could finish inside two unthrottled turns, but never
-      // its first; the player's route takes several turns to close.
-      if (od <= cfg.oppRam || od > cfg.oppRam * 2 || pd <= playerRamPerTurn * 2 + 3) continue;
-    } else {
-      // Nobody may be able to win on their opening turn. minPd raises the
-      // floor where boosts and patch shortcuts widen the opening burst.
-      const pdFloor = Math.max(playerRamPerTurn, cfg.minPd ?? 0);
-      if (pd <= pdFloor || od <= cfg.oppRam || !shortcutOk) continue;
-    }
+    // Nobody may be able to win on their opening turn.
+    const pdFloor = Math.max(playerRamPerTurn, cfg.minPd ?? 0);
+    if (pd <= pdFloor || od <= cfg.oppRam) continue;
 
     if (score < bestScore) {
       bestScore = score;
@@ -272,7 +188,7 @@ export function createDuel(
     }
   }
 
-  let s = best ?? loose ?? lastResort;
+  let s = best ?? loose;
   if (!s) {
     // A floored config gets a much deeper retry budget: its floor is the
     // whole point, and an unfloored board is the last thing we ship.
@@ -283,12 +199,12 @@ export function createDuel(
       } else if (cfg.minPd !== undefined) {
         // The floor is unmeetable on this seed line: fall back to the
         // pre-floor generator rather than dying. Rare by construction.
-        return createDuel({ ...cfg, minPd: undefined }, seed, kit, playerRamPerTurn, 0);
+        return createDuel({ ...cfg, minPd: undefined }, seed, playerRamPerTurn, 0);
       } else {
-        throw new Error("duel generator could not produce a fair board");
+        throw new Error("dive generator could not produce a fair board");
       }
     } else {
-      return createDuel(cfg, (seed + 0x9e37) >>> 0, kit, playerRamPerTurn, retry + 1);
+      return createDuel(cfg, (seed + 0x9e37) >>> 0, playerRamPerTurn, retry + 1);
     }
   }
 
@@ -354,12 +270,6 @@ export function createDuel(
     s.par = Math.ceil(base * PAR_RATE) + (cfg.parFlat ?? PAR_FLAT);
   }
   s.power = computeDuelPower(s);
-  s.econ.player.ram = playerRamPerTurn + (kit.augments.includes("hotBoot") ? 1 : 0);
-
-  // The finale machine was already inside: it takes the opening turn, so
-  // no opening burst ever closes the board before it has moved.
-  if (cfg.oppOpens && !cfg.tutorial) {
-    startOppTurn(s);
-  }
+  s.econ.player.ram = playerRamPerTurn;
   return s;
 }

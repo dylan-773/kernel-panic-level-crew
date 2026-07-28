@@ -1,25 +1,26 @@
 /**
  * The dive engine's public surface.
  *
- * This is the real Kernel Panic duel engine, vendored whole. A dive here is
- * the engine running with every program turned off: the crew always emits
- * abilityFreq 0 and the player always carries BASE_KIT, so neither side can
- * cast anything and the whole dive collapses to what it is underneath. You
- * rotate junctions, your signal floods through aligned arms and claims every
- * neutral node it reaches, and the first flood to touch the core wins.
+ * A dive is a grid of scrambled junctions, RAM, and turns. Rotating a
+ * junction costs 1 RAM. Your signal floods through aligned arms and claims
+ * every neutral node it reaches. First flood to the core wins.
  *
- * Rotating costs 1 RAM. RAM refills each turn. That is the entire economy.
+ * There is no program layer in this engine. Not disabled, not configured
+ * off: absent. There is no code here that plants a trap, casts a mode,
+ * locks a junction or spends an augment, so no configuration can produce
+ * one. `tools/check_bare.mjs` enforces that on every run.
  */
 
 export { createDuel } from "./duel-setup";
 export { duelReducer, type DuelAction } from "./duel-reducer";
 export { canRotate, routeCost } from "./duel-power";
+export { botPlayTurn, oppStep } from "./opponent";
+export { endPlayerTurn } from "./duel-actions";
 export { rotateArms } from "./types";
-export { ROUND_CAP, BASE_KIT } from "./duel-types";
+export { ROUND_CAP } from "./duel-types";
 export type {
   DuelCell,
   DuelConfig,
-  DuelKit,
   DuelState,
   DuelEndKind,
   Side,
@@ -28,15 +29,13 @@ export type {
 import type { DuelConfig } from "./duel-types";
 
 /**
- * Turn a crew-authored dive spec into a DuelConfig.
- *
- * The spec carries only the knobs a rotation race can feel. Everything the
- * program layer would need is pinned here to the values that switch it off,
- * so a malformed spec cannot accidentally hand the intrusion an ability.
+ * A crew-authored dive spec. Every field is something a rotation race can
+ * feel; there is nothing else to express.
  */
 export interface DiveSpec {
   id: string;
   difficulty: string;
+  seed?: number;
   grid: [number, number];
   playerRam: number;
   oppRam: number;
@@ -55,15 +54,9 @@ export function specToConfig(spec: DiveSpec): DuelConfig {
     h: spec.grid[1],
     oppRam: spec.oppRam,
     greed: spec.greed,
-    // Hard zero. No program ever fires on either side of a dive.
-    abilityFreq: 0,
     minCost: spec.minCost,
     minPd: spec.minPd,
     headStart: spec.headStart,
-    oppAttackModes: ["redirect"],
-    oppDefendModes: [],
-    oppTier: 1,
-    dominant: "redirect",
     parFlat: spec.parFlat,
     slag: spec.slag,
   };
