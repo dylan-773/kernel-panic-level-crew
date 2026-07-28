@@ -1,0 +1,6 @@
+simulate: normal  (200 seeds)
+  grid 11x9, player RAM 5, opp RAM 6, greed 0.85, head start 0
+  win rate    71.0%   (142/200)
+  target      71%   drift +0.0
+  avg rounds  3.5
+  endings     core 188, cap 8, severed 4

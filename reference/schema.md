@@ -53,7 +53,7 @@ How hard SIG-0 pushes, and what you have to answer with.
 }
 ```
 
-- `playerRam` is your rotations per turn. The shipped game starts a diver at 5.
+- `playerRam` is your rotations per turn. The calibration table assumes 5.
 - `oppRam` is SIG-0's. The strongest lever there is.
 - `greed` is how optimally SIG-0 plays, 0 to 1.
 - `headStart` is nodes SIG-0 already holds when you link in.
@@ -87,9 +87,9 @@ what `tools/simulate.mjs` measures.
 ## What is deliberately not in here
 
 A dive has no programs, no abilities, no augments, no loadout, no customer,
-no story. None of that is switched off in `engine/`. It is **deleted**: there
-is no code there that casts a mode, plants a trap, locks a junction or spends
-an augment, so there is no configuration that could produce one.
+no story. `engine/` has no code that casts a mode, plants a trap, locks a
+junction or spends an augment, so there is no configuration that could
+produce one.
 
 What is left is the thing underneath: **a grid of junctions, RAM, and turns.**
 You rotate a junction, your signal floods through whatever arms now line up

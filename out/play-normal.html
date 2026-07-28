@@ -1,0 +1,1921 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kernel Panic dive: normal 11x9</title>
+<style>
+/* Kernel Panic dive board.
+ *
+ * The palette tokens and every kp-d* rule are lifted verbatim from the
+ * shipped game's stylesheet, so a generated dive looks exactly like the real
+ * board rather than like a mock of it. The kp-hud block at the end is this
+ * repo's own: the shipped game's dock carries programs and a patch pouch,
+ * and a dive has neither.
+ */
+
+:root {
+  --kp-bg0: #101218;
+  --kp-bg1: #14171e;
+  --kp-panel: #1a1e27;
+  --kp-panel2: #1f242f;
+  --kp-line: #2b313d;
+  --kp-line-soft: #222733;
+  --kp-text: #e8ebf2;
+  --kp-dim: #8f97a8;
+  --kp-rose: #e94f6d;
+  --kp-rose-hot: #ff6d88;
+  --kp-rose-soft: rgba(233, 79, 109, 0.16);
+  --kp-signal: #ffe9c4;
+  --kp-signal-hot: #fff6e2;
+  --kp-signal-glow: rgba(255, 233, 196, 0.28);
+  --kp-crimson: #cf4b45;
+  --kp-crimson-soft: rgba(207, 75, 69, 0.2);
+  --kp-gold: #d9a53f;
+  --kp-steel: #9fb2cc;
+  --kp-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.kp-danger-text {
+  color: var(--kp-crimson);
+}
+.kp-draft-note {
+  font-size: 11px;
+  color: var(--kp-dim);
+  line-height: 1.35;
+}
+/* ---------- duel layout ---------- */
+
+.kp-duel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.kp-duel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 18px;
+  border-bottom: 2px solid var(--kp-line);
+  background: var(--kp-bg1);
+}
+.kp-duel-title strong {
+  display: block;
+  font-family: var(--kp-display);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--kp-signal);
+}
+.kp-duel-title span {
+  color: var(--kp-dim);
+  font-size: 12px;
+}
+.kp-duel-meters {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+.kp-duel-day {
+  color: var(--kp-dim);
+}
+.kp-duel-round {
+  color: var(--kp-steel);
+}
+.kp-duel-main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 246px;
+  gap: 0;
+}
+.kp-duel-boardwrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  min-height: 0;
+  overflow: hidden;
+}
+.kp-dboard {
+  width: 100%;
+  height: 100%;
+  max-height: calc(100vh - 250px);
+}
+.kp-duel-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-left: 2px solid var(--kp-line);
+  background: var(--kp-bg1);
+  overflow: auto;
+}
+/* ---------- board svg ---------- */
+
+.kp-dboard-bg {
+  fill: #0c0e14;
+}
+.kp-dboard-frame {
+  fill: none;
+  stroke: var(--kp-line);
+  stroke-width: 2;
+}
+.kp-dot {
+  fill: var(--kp-line-soft);
+}
+.kp-dcell line {
+  stroke-linecap: butt;
+  shape-rendering: crispEdges;
+}
+.kp-dlive {
+  cursor: pointer;
+}
+.kp-ddot {
+  fill: var(--kp-line);
+}
+.kp-dlegal-ring {
+  fill: rgba(255, 233, 196, 0.05);
+  stroke: rgba(255, 233, 196, 0.5);
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+  animation: kp-legal-pulse 1s steps(2) infinite;
+}
+.kp-dselected .kp-dlegal-ring,
+.kp-dselected .kp-dnode {
+  stroke: var(--kp-gold);
+}
+.kp-dghost {
+  opacity: 0;
+  pointer-events: none;
+}
+.kp-dcell:hover .kp-dghost {
+  opacity: 0.85;
+}
+.kp-dghost-arm {
+  stroke: rgba(255, 233, 196, 0.55);
+}
+.kp-dghost-node {
+  fill: rgba(255, 233, 196, 0.55);
+}
+.kp-dblock-body {
+  fill: #171a22;
+  stroke: #232838;
+  stroke-width: 2;
+}
+.kp-dblock-crack {
+  stroke: #2c3244;
+  stroke-width: 2;
+  fill: none;
+}
+.kp-darms {
+  transition: transform 160ms steps(4);
+}
+.kp-darm-p {
+  stroke: #4d4436;
+}
+.kp-darm-p-glow {
+  stroke: rgba(255, 233, 196, 0.22);
+}
+.kp-darm-p-lit {
+  stroke: var(--kp-signal);
+}
+.kp-darm-o {
+  stroke: #4a2523;
+}
+.kp-darm-o-glow {
+  stroke: rgba(207, 75, 69, 0.25);
+}
+.kp-darm-o-lit {
+  stroke: var(--kp-crimson);
+}
+.kp-darm-core {
+  stroke: #3a3f4e;
+}
+.kp-dnode {
+  stroke-width: 2;
+}
+.kp-dnode-p {
+  fill: #211d15;
+  stroke: var(--kp-signal);
+}
+.kp-dnode-o {
+  fill: #201312;
+  stroke: var(--kp-crimson);
+}
+.kp-dlit .kp-dnode-p {
+  fill: var(--kp-signal);
+}
+.kp-dlit .kp-dnode-o {
+  fill: var(--kp-crimson);
+}
+.kp-dshield-b {
+  fill: none;
+  stroke: var(--kp-steel);
+  stroke-width: 2.5;
+}
+.kp-dtrap-body {
+  stroke-width: 1.5;
+}
+.kp-dtrap-p .kp-dtrap-body {
+  fill: rgba(217, 165, 63, 0.9);
+  stroke: #6b5220;
+}
+.kp-dtrap-o .kp-dtrap-body {
+  fill: rgba(207, 75, 69, 0.95);
+  stroke: #571f1c;
+  animation: kp-blink 800ms steps(1) infinite;
+}
+.kp-dport-body {
+  fill: var(--kp-panel2);
+  stroke-width: 2;
+}
+.kp-dport-p .kp-dport-body {
+  stroke: var(--kp-signal);
+}
+.kp-dport-o .kp-dport-body {
+  stroke: var(--kp-crimson);
+}
+.kp-dport-eye {
+  fill: var(--kp-signal);
+}
+.kp-dport-o .kp-dport-eye {
+  fill: var(--kp-crimson);
+}
+.kp-dtag {
+  fill: var(--kp-dim);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-anchor: middle;
+  font-family: var(--kp-display);
+}
+.kp-dtag-o {
+  fill: var(--kp-crimson);
+}
+.kp-dcore-body {
+  fill: #14161d;
+  stroke: var(--kp-steel);
+  stroke-width: 2.5;
+}
+.kp-dcore-eye {
+  fill: var(--kp-steel);
+}
+.kp-dcore-ring {
+  fill: none;
+  stroke: rgba(159, 178, 204, 0.25);
+  stroke-width: 2;
+  stroke-dasharray: 6 8;
+  animation: kp-ring-spin 14s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.kp-dcore-lit .kp-dcore-body {
+  stroke: var(--kp-signal);
+  fill: rgba(255, 233, 196, 0.18);
+}
+.kp-dcore-lit .kp-dcore-eye {
+  fill: var(--kp-signal);
+}
+.kp-duel {
+  position: relative;
+}
+.kp-duel-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+.kp-duel-rail {
+    border-left: none;
+    border-top: 2px solid var(--kp-line);
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+.kp-analyze-grid,
+  .kp-kit-grid,
+  .kp-draft-grid,
+  .kp-upgrade-grid {
+    grid-template-columns: 1fr;
+  }
+.kp-dboard {
+    max-height: 52vh;
+  }
+.kp-darms,
+  .kp-strain-fill {
+    transition: none;
+  }
+.kp-dlegal-ring,
+  .kp-turnlight-on,
+  .kp-dtrap-o .kp-dtrap-body,
+  .kp-boot-cursor,
+  .kp-dcore-ring {
+    animation: none;
+  }
+/* ============================================================
+   DIVE v2: fullscreen flood-claim duel + juice
+   ============================================================ */
+
+.kp-dive2 {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: var(--kp-bg0);
+}
+.kp-dive2-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 16px;
+  border-bottom: 2px solid var(--kp-line);
+  background: var(--kp-bg1);
+}
+.kp-dive2-job strong {
+  display: block;
+  font-family: var(--kp-display);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--kp-signal);
+  text-shadow: 0 0 12px rgba(255, 233, 196, 0.35);
+}
+.kp-dive2-job span {
+  color: var(--kp-dim);
+  font-size: 12px;
+}
+.kp-dive2-osk {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+.kp-dive2-stage {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 224px;
+}
+.kp-dive2-boardwrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+.kp-dive2-boardwrap .kp-dboard {
+  width: 100%;
+  height: 100%;
+}
+.kp-dive2-opp {
+  padding: 14px 12px;
+  border-left: 2px solid var(--kp-line);
+  background: var(--kp-bg1);
+  overflow: auto;
+}
+.kp-dive2-opp h3 {
+  font-family: var(--kp-display);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--kp-crimson);
+  margin-bottom: 10px;
+}
+.kp-dive2-dock {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  border-top: 2px solid var(--kp-line);
+  background: var(--kp-bg1);
+}
+.kp-dock-ram { min-width: 170px; }
+.kp-dock-label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--kp-dim);
+  margin-bottom: 6px;
+}
+.kp-dock-label em {
+  font-style: normal;
+  color: var(--kp-signal);
+  font-size: 13px;
+}
+.kp-dock-abilities {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.kp-dock-abilities .kp-ability {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 118px;
+}
+/* board: neutral arms + claim pop */
+
+.kp-darm-n { stroke: #3b4152; }
+.kp-dnode-n {
+  fill: #262b37;
+  stroke: #4a5266;
+  stroke-width: 2;
+}
+.kp-dcell-n:hover .kp-dnode-n { stroke: var(--kp-signal); }
+.kp-claimpop {
+  animation: kp-claim-in 240ms steps(4) both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.kp-dshield-lock {
+  fill: var(--kp-steel);
+}
+.kp-dive2-stage { grid-template-columns: 1fr; }
+.kp-dive2-opp { display: none; }
+.kp-dicon-grid { display: none; }
+.kp-shake-1, .kp-shake-2, .kp-shake-3, .kp-claimpop, .kp-pulse {
+    animation: none;
+  }
+/* ---------- enemy telegraphs ---------- */
+
+.kp-daim {
+  animation: kp-daim-blink 420ms steps(2) infinite;
+}
+.kp-daim-b {
+  fill: none;
+  stroke: var(--kp-crimson);
+  stroke-width: 3;
+  shape-rendering: crispEdges;
+}
+.kp-daim, .kp-virus, .kp-sweep { animation: none; }
+/* ---------- v5: augment draft ---------- */
+
+.kp-draft {
+  margin-top: 16px;
+}
+.kp-draft h3 {
+  font-family: var(--kp-display);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--kp-gold);
+  margin-bottom: 10px;
+}
+.kp-draft-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.kp-draft-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  padding: 12px;
+  background: var(--kp-panel2);
+  border: 2px solid var(--kp-line);
+  color: var(--kp-text);
+  cursor: pointer;
+  transition: transform 80ms steps(2);
+}
+.kp-draft-card:hover:not(:disabled) {
+  border-color: var(--kp-gold);
+  transform: translateY(-2px);
+}
+.kp-draft-config {
+  border-color: var(--kp-signal);
+}
+.kp-draft-kind {
+  font-family: var(--kp-display);
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: var(--kp-dim);
+}
+.kp-draft-config .kp-draft-kind {
+  color: var(--kp-signal);
+}
+.kp-draft-card strong {
+  font-family: var(--kp-display);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+.kp-draft-card p {
+  color: var(--kp-dim);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.kp-draft-picked {
+  border-color: var(--kp-gold);
+  background: rgba(255, 214, 130, 0.1);
+}
+.kp-draft-dim {
+  opacity: 0.35;
+}
+.kp-draft-stamp {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  font-style: normal;
+  font-family: var(--kp-display);
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  color: var(--kp-gold);
+}
+/* ---------- v5: board glyphs ---------- */
+
+.kp-dward-ring {
+  fill: none;
+  stroke: var(--kp-gold);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 5;
+  opacity: 0.7;
+  animation: kp-ward-spin 6s linear infinite;
+  transform-origin: 0 0;
+}
+.kp-dtrace-ring {
+  fill: none;
+  stroke: var(--kp-crimson);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
+  opacity: 0.8;
+  animation: kp-trace-blink 900ms steps(2) infinite;
+}
+.kp-dtrap-siphon .kp-dtrap-body {
+  fill: var(--kp-gold);
+  stroke: var(--kp-ink);
+}
+/* ---------- v5: dock ---------- */
+
+.kp-dock-banked {
+  font-style: normal;
+  font-family: var(--kp-display);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--kp-gold);
+  margin-left: 8px;
+  animation: kp-banked-pop 300ms steps(3);
+}
+/* Gold aiming ring on slag blocks while a patch cell is armed. */
+.kp-dblock-patchable .kp-dblock-body {
+  stroke: var(--kp-gold, #d9a53f);
+  stroke-width: 2;
+  animation: kp-legal-pulse 1s steps(2) infinite;
+}
+.kp-dweld {
+  fill: var(--kp-gold);
+  opacity: 0.85;
+}
+.kp-darknet {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  font-size: 12px;
+}
+.kp-darknet-tag {
+  color: var(--kp-crimson);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+.kp-darknet-offline h3 {
+  color: var(--kp-dim);
+  letter-spacing: 0.12em;
+}
+.kp-darknet-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.kp-darknet-reveal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--kp-line);
+  padding: 10px;
+  animation: kp-reveal-pop 480ms steps(6);
+}
+.kp-darknet-reveal-glyph {
+  line-height: 0;
+  animation: kp-reveal-spin 420ms steps(4);
+}
+.kp-darknet-pouch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.kp-draft-swapping {
+  border-color: var(--kp-gold);
+}
+.kp-swap-card .kp-draft-kind {
+  color: var(--kp-crimson);
+}
+
+
+/* ---- dive shell: the frame around the board ---- */
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--kp-bg0); color: var(--kp-text);
+  font-family: var(--kp-mono);
+}
+.kp-wrap {
+  height: 100%; display: flex; flex-direction: column;
+  gap: 10px; padding: 14px 16px 16px; max-width: 1400px; margin: 0 auto;
+}
+.kp-top {
+  display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--kp-line); padding-bottom: 8px;
+}
+.kp-title { font-size: 13px; letter-spacing: 0.18em; color: var(--kp-signal); }
+.kp-sub { font-size: 11px; letter-spacing: 0.12em; color: var(--kp-dim); }
+.kp-sub b { color: var(--kp-steel); font-weight: 400; }
+.kp-spacer { flex: 1; }
+
+.kp-stage {
+  flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+}
+.kp-dboard { max-height: 100%; max-width: 100%; }
+
+.kp-dock {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  border-top: 1px solid var(--kp-line); padding-top: 10px;
+}
+.kp-stat { display: flex; flex-direction: column; gap: 3px; }
+.kp-stat-k { font-size: 9px; letter-spacing: 0.16em; color: var(--kp-dim); }
+.kp-stat-v { font-size: 15px; color: var(--kp-text); }
+.kp-stat-v.kp-hot { color: var(--kp-signal); }
+
+.kp-pips { display: flex; gap: 3px; margin-top: 4px; }
+.kp-pip {
+  width: 9px; height: 14px; border: 1px solid var(--kp-line);
+  background: transparent;
+}
+.kp-pip-on { background: var(--kp-signal); border-color: var(--kp-signal); }
+
+button {
+  font-family: var(--kp-mono); font-size: 11px; letter-spacing: 0.14em;
+  color: var(--kp-text); background: var(--kp-panel);
+  border: 1px solid var(--kp-line); padding: 9px 16px; cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--kp-signal); color: var(--kp-signal); }
+button:disabled { opacity: 0.35; cursor: default; }
+#endturn { border-color: var(--kp-rose); color: var(--kp-rose); }
+#endturn:hover:not(:disabled) { background: var(--kp-rose-soft); color: var(--kp-rose-hot); }
+
+.kp-note {
+  font-size: 11px; letter-spacing: 0.08em; color: var(--kp-dim);
+  min-height: 16px; padding-top: 2px;
+}
+.kp-note-win { color: var(--kp-signal); }
+.kp-note-loss { color: var(--kp-crimson); }
+</style>
+</head>
+<body>
+<div class="kp-wrap">
+
+  <div class="kp-top">
+    <span class="kp-title">KERNEL PANIC / DIVE</span>
+    <span class="kp-sub">DIFFICULTY <b id="difficulty">-</b></span>
+    <span class="kp-sub">GRID <b id="gridlabel">-</b></span>
+    <span class="kp-sub">SEED <b id="seed">-</b></span>
+    <span class="kp-spacer"></span>
+    <span class="kp-sub">SIM WIN RATE <b id="target">-</b></span>
+  </div>
+
+  <div class="kp-stage"><div id="board" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"></div></div>
+
+  <div class="kp-note" id="note"></div>
+
+  <div class="kp-dock">
+    <div class="kp-stat">
+      <span class="kp-stat-k">RAM</span>
+      <span class="kp-stat-v kp-hot" id="ram">-</span>
+      <span class="kp-pips" id="rampips"></span>
+    </div>
+    <div class="kp-stat">
+      <span class="kp-stat-k">ROUND</span>
+      <span class="kp-stat-v" id="round">-</span>
+    </div>
+    <div class="kp-stat">
+      <span class="kp-stat-k">TURN</span>
+      <span class="kp-stat-v" id="turn">-</span>
+    </div>
+    <div class="kp-stat">
+      <span class="kp-stat-k">ROTATIONS / PAR</span>
+      <span class="kp-stat-v"><span id="rotations">-</span> / <span id="par">-</span></span>
+    </div>
+    <span class="kp-spacer"></span>
+    <button id="endturn">END TURN &nbsp;[ENTER]</button>
+    <button id="again">REPLAY SEED</button>
+    <button id="next">NEXT SEED</button>
+  </div>
+
+</div>
+
+<script>window.DIVE = {
+  "id": "normal",
+  "difficulty": "normal",
+  "seed": 1,
+  "grid": [
+    11,
+    9
+  ],
+  "playerRam": 5,
+  "oppRam": 6,
+  "greed": 0.85,
+  "minCost": 22,
+  "minPd": 8,
+  "headStart": 0,
+  "slag": 0.18,
+  "parFlat": 3,
+  "targetWinPct": 71
+};</script>
+<script>(() => {
+  // engine/constants.ts
+  var BASE_REACH = 2;
+  var PAR_RATE = 1.25;
+  var PAR_FLAT = 2;
+  function cascadeRam(claimed) {
+    return Math.min(2, Math.floor(claimed / 4));
+  }
+
+  // engine/types.ts
+  var DX = [0, 1, 0, -1];
+  var DY = [-1, 0, 1, 0];
+  function oppositeDir(d) {
+    return (d + 2) % 4;
+  }
+  function rotateArms(mask, rot) {
+    const r = (rot % 4 + 4) % 4;
+    return (mask << r | mask >> 4 - r) & 15;
+  }
+  function cellIndex(w, x, y) {
+    return y * w + x;
+  }
+
+  // engine/duel-power.ts
+  function effectiveDuelArms(c) {
+    return rotateArms(c.base, c.rot);
+  }
+  function entryOf(side) {
+    return side === "player" ? "entryP" : "entryO";
+  }
+  function passable(c, side) {
+    if (c.kind === "block")
+      return false;
+    if (c.kind === "core")
+      return true;
+    if (c.kind === "entryP")
+      return side === "player";
+    if (c.kind === "entryO")
+      return side === "opp";
+    return c.owner === "none" || c.owner === side;
+  }
+  function runFlood(s, side) {
+    const start = side === "player" ? s.entryP : s.entryO;
+    const reached = new Array(s.cells.length).fill(false);
+    const claimed = [];
+    let reachedCore = false;
+    reached[start] = true;
+    const queue = [start];
+    while (queue.length > 0) {
+      const i = queue.shift();
+      const c = s.cells[i];
+      const arms = effectiveDuelArms(c);
+      for (let d = 0;d < 4; d++) {
+        if ((arms & 1 << d) === 0)
+          continue;
+        const nx = c.x + DX[d];
+        const ny = c.y + DY[d];
+        if (nx < 0 || ny < 0 || nx >= s.w || ny >= s.h)
+          continue;
+        const ni = cellIndex(s.w, nx, ny);
+        if (reached[ni])
+          continue;
+        const nc = s.cells[ni];
+        if (!passable(nc, side))
+          continue;
+        if ((effectiveDuelArms(nc) & 1 << oppositeDir(d)) === 0)
+          continue;
+        reached[ni] = true;
+        if (nc.kind === "core") {
+          reachedCore = true;
+          continue;
+        }
+        if (nc.kind === "node" && nc.owner === "none") {
+          nc.owner = side;
+          nc.claimSeq = ++s.claimCounter;
+          nc.claimWave = claimed.length;
+          claimed.push(ni);
+        }
+        queue.push(ni);
+      }
+    }
+    return { reached, claimed, reachedCore };
+  }
+  function computeDuelPower(s) {
+    const read = (side) => {
+      const start = side === "player" ? s.entryP : s.entryO;
+      const out = new Array(s.cells.length).fill(false);
+      out[start] = true;
+      const queue = [start];
+      while (queue.length > 0) {
+        const i = queue.shift();
+        const c = s.cells[i];
+        const arms = effectiveDuelArms(c);
+        for (let d = 0;d < 4; d++) {
+          if ((arms & 1 << d) === 0)
+            continue;
+          const nx = c.x + DX[d];
+          const ny = c.y + DY[d];
+          if (nx < 0 || ny < 0 || nx >= s.w || ny >= s.h)
+            continue;
+          const ni = cellIndex(s.w, nx, ny);
+          if (out[ni])
+            continue;
+          const nc = s.cells[ni];
+          if (nc.kind === "block")
+            continue;
+          if (nc.kind === "entryP" && side !== "player")
+            continue;
+          if (nc.kind === "entryO" && side !== "opp")
+            continue;
+          if (nc.kind === "node" && nc.owner !== side)
+            continue;
+          if ((effectiveDuelArms(nc) & 1 << oppositeDir(d)) === 0)
+            continue;
+          out[ni] = true;
+          if (nc.kind !== "core")
+            queue.push(ni);
+        }
+      }
+      return out;
+    };
+    return { player: read("player"), opp: read("opp") };
+  }
+  function rotCostFor(c, needed) {
+    for (let k = 0;k < 4; k++) {
+      if ((rotateArms(c.base, (c.rot + k) % 4) & needed) === needed)
+        return k;
+    }
+    return Infinity;
+  }
+  function routePlan(s, side, avoid, depth = 0) {
+    const n = s.cells.length;
+    const start = side === "player" ? s.entryP : s.entryO;
+    const dist = new Array(n * 4).fill(Infinity);
+    const prev = new Array(n * 4).fill(-1);
+    const buckets = [[]];
+    const push = (state, d) => {
+      while (buckets.length <= d)
+        buckets.push([]);
+      buckets[d].push(state);
+    };
+    const startCell = s.cells[start];
+    const startArms = effectiveDuelArms(startCell);
+    for (let d = 0;d < 4; d++) {
+      if ((startArms & 1 << d) === 0)
+        continue;
+      const nx = startCell.x + DX[d];
+      const ny = startCell.y + DY[d];
+      if (nx < 0 || ny < 0 || nx >= s.w || ny >= s.h)
+        continue;
+      const ni = cellIndex(s.w, nx, ny);
+      const nc = s.cells[ni];
+      if (!passable(nc, side) || avoid && avoid.has(ni))
+        continue;
+      if (nc.kind === "core")
+        return { cost: 0, path: [], steps: [] };
+      if (nc.kind !== "node")
+        continue;
+      const st = ni * 4 + d;
+      if (dist[st] > 0) {
+        dist[st] = 0;
+        push(st, 0);
+      }
+    }
+    let bestGoal = Infinity;
+    let bestGoalState = -1;
+    for (let d = 0;d < buckets.length; d++) {
+      if (d >= bestGoal)
+        break;
+      const bucket = buckets[d];
+      if (!bucket)
+        continue;
+      while (bucket.length > 0) {
+        const st = bucket.pop();
+        if (dist[st] < d)
+          continue;
+        const i = st >> 2;
+        const dIn = st & 3;
+        const c = s.cells[i];
+        for (let dOut = 0;dOut < 4; dOut++) {
+          if (dOut === oppositeDir(dIn))
+            continue;
+          const nx = c.x + DX[dOut];
+          const ny = c.y + DY[dOut];
+          if (nx < 0 || ny < 0 || nx >= s.w || ny >= s.h)
+            continue;
+          const ni = cellIndex(s.w, nx, ny);
+          const nc = s.cells[ni];
+          if (!passable(nc, side) || avoid && avoid.has(ni))
+            continue;
+          const needed = 1 << oppositeDir(dIn) | 1 << dOut;
+          let k = rotCostFor(c, needed);
+          if (!isFinite(k))
+            continue;
+          if (k > 0 && c.owner === side)
+            k += 1;
+          const nd = d + k;
+          if (nc.kind === "core") {
+            if (nd < bestGoal) {
+              bestGoal = nd;
+              bestGoalState = st;
+            }
+            continue;
+          }
+          if (nc.kind !== "node")
+            continue;
+          const nst = ni * 4 + dOut;
+          if (nd < dist[nst]) {
+            dist[nst] = nd;
+            prev[nst] = st;
+            push(nst, nd);
+          }
+        }
+      }
+    }
+    if (bestGoalState === -1)
+      return null;
+    const chain = [];
+    let cur = bestGoalState;
+    while (cur !== -1) {
+      chain.push(cur);
+      cur = prev[cur];
+    }
+    chain.reverse();
+    const path = [];
+    let total = 0;
+    const seenRot = new Map;
+    let conflict = -1;
+    for (let ci = 0;ci < chain.length; ci++) {
+      const st = chain[ci];
+      const i = st >> 2;
+      const dIn = st & 3;
+      const c = s.cells[i];
+      const nextIdx = ci + 1 < chain.length ? chain[ci + 1] >> 2 : s.coreIdx;
+      const dOut = dirBetween(c, s.cells[nextIdx]);
+      const needed = 1 << oppositeDir(dIn) | 1 << dOut;
+      const k = rotCostFor(c, needed);
+      if (!isFinite(k))
+        return null;
+      const targetRot = (c.rot + k) % 4;
+      const prior = seenRot.get(i);
+      if (prior !== undefined) {
+        if (prior !== targetRot)
+          conflict = i;
+        continue;
+      }
+      seenRot.set(i, targetRot);
+      total += k;
+      path.push({ idx: i, targetRot, turns: k });
+    }
+    if (conflict !== -1) {
+      if (depth < 4) {
+        const nextAvoid = new Set(avoid ?? []);
+        nextAvoid.add(conflict);
+        const rerouted = routePlan(s, side, nextAvoid, depth + 1);
+        if (rerouted)
+          return rerouted;
+      }
+      return { cost: total, path, steps: path.filter((p) => p.turns > 0), approx: true };
+    }
+    return { cost: total, path, steps: path.filter((p) => p.turns > 0) };
+  }
+  function dirBetween(a, b) {
+    if (b.x - a.x === 1)
+      return 1;
+    if (b.x - a.x === -1)
+      return 3;
+    if (b.y - a.y === 1)
+      return 2;
+    return 0;
+  }
+  function routeCost(s, side, avoid) {
+    const plan = routePlan(s, side, avoid);
+    return plan ? plan.cost : Infinity;
+  }
+  function inReach(s, side, idx, reach) {
+    const c0 = s.cells[idx];
+    if (c0.kind !== "node" || c0.owner !== "none")
+      return false;
+    const seen = new Set([idx]);
+    let frontier = [idx];
+    for (let step = 1;step <= reach; step++) {
+      const next = [];
+      for (const i of frontier) {
+        const c = s.cells[i];
+        for (let d = 0;d < 4; d++) {
+          const nx = c.x + DX[d];
+          const ny = c.y + DY[d];
+          if (nx < 0 || ny < 0 || nx >= s.w || ny >= s.h)
+            continue;
+          const ni = cellIndex(s.w, nx, ny);
+          if (seen.has(ni))
+            continue;
+          const nc = s.cells[ni];
+          if (nc.kind === entryOf(side))
+            return true;
+          if (nc.kind === "node" && nc.owner === side)
+            return true;
+          if (nc.kind === "node" && nc.owner === "none" && step < reach) {
+            seen.add(ni);
+            next.push(ni);
+          }
+        }
+      }
+      frontier = next;
+      if (frontier.length === 0)
+        break;
+    }
+    return false;
+  }
+  function canRotate(s, side, idx) {
+    const c = s.cells[idx];
+    if (!c || c.kind !== "node")
+      return false;
+    if (c.owner === side)
+      return true;
+    if (c.owner !== "none")
+      return false;
+    return inReach(s, side, idx, BASE_REACH);
+  }
+
+  // engine/duel-types.ts
+  function otherSide(s) {
+    return s === "player" ? "opp" : "player";
+  }
+  var PIECE_I = 5;
+  var PIECE_L = 3;
+  var PIECE_T = 7;
+  var PIECE_X = 15;
+  var ROUND_CAP = 25;
+
+  // engine/rng.ts
+  function seedRng(seed) {
+    return seed >>> 0;
+  }
+  function nextU32(state) {
+    let a = state + 1831565813 >>> 0;
+    let t = a;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return [((t ^ t >>> 14) >>> 0) / 4294967296, a];
+  }
+
+  class Rng {
+    state;
+    constructor(seed) {
+      this.state = seedRng(seed);
+    }
+    next() {
+      const [v, s] = nextU32(this.state);
+      this.state = s;
+      return v;
+    }
+    int(n) {
+      return Math.floor(this.next() * n);
+    }
+    pick(arr) {
+      return arr[this.int(arr.length)];
+    }
+    shuffle(arr) {
+      for (let i = arr.length - 1;i > 0; i--) {
+        const j = this.int(i + 1);
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+  }
+
+  // engine/duel-setup.ts
+  var MAX_OPENING_CLAIM = 3;
+  function drawMask(rng) {
+    const v = rng.next();
+    if (v < 0.4)
+      return PIECE_I;
+    if (v < 0.85)
+      return PIECE_L;
+    if (v < 0.97)
+      return PIECE_T;
+    return PIECE_X;
+  }
+  function initialEcon(ramPerTurn, carryCap) {
+    return {
+      ramPerTurn,
+      ram: 0,
+      carry: 0,
+      carryCap,
+      drainNext: 0,
+      rotations: 0
+    };
+  }
+  function buildCells(cfg, rng) {
+    const { w, h } = cfg;
+    const midY = Math.floor(h / 2);
+    const entryP = cellIndex(w, 0, midY);
+    const entryO = cellIndex(w, w - 1, midY);
+    const coreIdx = cellIndex(w, Math.floor(w / 2), midY);
+    const near = (i, j) => {
+      const ax = i % w;
+      const ay = Math.floor(i / w);
+      const bx = j % w;
+      const by = Math.floor(j / w);
+      return Math.abs(ax - bx) + Math.abs(ay - by);
+    };
+    const cells = [];
+    for (let y = 0;y < h; y++) {
+      for (let x = 0;x < w; x++) {
+        const i = cellIndex(w, x, y);
+        const protectedCell = i === entryP || i === entryO || i === coreIdx || near(i, entryP) < 2 || near(i, entryO) < 2 || near(i, coreIdx) < 2;
+        const slag = !protectedCell && rng.next() < (cfg.slag ?? 0.18);
+        cells.push({
+          x,
+          y,
+          kind: slag ? "block" : "node",
+          base: slag ? 0 : drawMask(rng),
+          rot: slag ? 0 : rng.int(4),
+          spin: 0,
+          owner: "none",
+          claimSeq: 0,
+          claimWave: 0
+        });
+      }
+    }
+    cells[entryP].kind = "entryP";
+    cells[entryP].base = 7;
+    cells[entryP].rot = 0;
+    cells[entryP].owner = "player";
+    cells[entryO].kind = "entryO";
+    cells[entryO].base = 13;
+    cells[entryO].rot = 0;
+    cells[entryO].owner = "opp";
+    cells[coreIdx].kind = "core";
+    cells[coreIdx].base = 15;
+    cells[coreIdx].rot = 0;
+    cells[coreIdx].owner = "none";
+    for (const c of cells)
+      c.spin = c.rot;
+    return { cells, entryP, entryO, coreIdx };
+  }
+  function createDuel(cfg, seed, playerRamPerTurn, retry = 0) {
+    const rng = new Rng(seed ^ 625341585);
+    const carryCap = 2;
+    let best = null;
+    let bestScore = Infinity;
+    let loose = null;
+    let looseScore = Infinity;
+    let anyFair = null;
+    let anyFairScore = Infinity;
+    for (let attempt = 0;attempt < 160; attempt++) {
+      const { cells, entryP, entryO, coreIdx } = buildCells(cfg, rng);
+      const s2 = {
+        cfg,
+        seed,
+        w: cfg.w,
+        h: cfg.h,
+        cells,
+        entryP,
+        entryO,
+        coreIdx,
+        power: { player: [], opp: [] },
+        phase: "playing",
+        winKind: null,
+        endReason: null,
+        round: 1,
+        turn: "player",
+        econ: { player: initialEcon(playerRamPerTurn, carryCap), opp: initialEcon(cfg.oppRam, 2) },
+        oppNextIntent: null,
+        oppStartCost: 0,
+        par: 0,
+        severedStreak: 0,
+        rngState: seedRng(seed ^ 1597463007),
+        claimCounter: 0,
+        fx: [],
+        fxNext: 1,
+        notice: null,
+        oppTurn: { started: false, queue: [], replans: 3, lastReplanCost: Infinity, aim: null }
+      };
+      const fp = runFlood(s2, "player");
+      const fo = runFlood(s2, "opp");
+      if (fp.reachedCore || fo.reachedCore)
+        continue;
+      if (fp.claimed.length > MAX_OPENING_CLAIM || fo.claimed.length > MAX_OPENING_CLAIM)
+        continue;
+      const pd = routeCost(s2, "player");
+      const od = routeCost(s2, "opp");
+      if (!isFinite(pd) || !isFinite(od))
+        continue;
+      if (Math.abs(pd - od) > 2)
+        continue;
+      const shorter = Math.min(pd, od);
+      const score = Math.abs(shorter - cfg.minCost);
+      const looseOk = pd > Math.max(playerRamPerTurn, (cfg.minPd ?? 0) - 2);
+      if (looseOk && score < looseScore) {
+        looseScore = score;
+        loose = s2;
+      }
+      if (score < anyFairScore) {
+        anyFairScore = score;
+        anyFair = s2;
+      }
+      const pdFloor = Math.max(playerRamPerTurn, cfg.minPd ?? 0);
+      if (pd <= pdFloor || od <= cfg.oppRam)
+        continue;
+      if (score < bestScore) {
+        bestScore = score;
+        best = s2;
+        if (score <= 1)
+          break;
+      }
+    }
+    let s = best ?? loose;
+    if (!s) {
+      const maxRetry = cfg.minPd !== undefined ? 12 : 5;
+      if (retry >= maxRetry) {
+        if (anyFair) {
+          s = anyFair;
+        } else if (cfg.minPd !== undefined) {
+          return createDuel({ ...cfg, minPd: undefined }, seed, playerRamPerTurn, 0);
+        } else {
+          throw new Error("dive generator could not produce a fair board");
+        }
+      } else {
+        return createDuel(cfg, seed + 40503 >>> 0, playerRamPerTurn, retry + 1);
+      }
+    }
+    if (cfg.headStart > 0) {
+      const applied = [];
+      for (let k = 0;k < cfg.headStart; k++) {
+        const plan = routePlan(s, "opp");
+        if (!plan)
+          break;
+        const next = plan.path.find((p) => s.cells[p.idx].owner === "none");
+        if (!next)
+          break;
+        const c = s.cells[next.idx];
+        const core = s.cells[s.coreIdx];
+        if (Math.abs(c.x - core.x) + Math.abs(c.y - core.y) <= 1)
+          break;
+        const prev = { idx: next.idx, rot: c.rot, spin: c.spin };
+        const turns = (next.targetRot - c.rot + 4) % 4;
+        c.rot = next.targetRot;
+        c.spin += turns;
+        c.owner = "opp";
+        c.claimSeq = ++s.claimCounter;
+        c.claimWave = 0;
+        if (!isFinite(routeCost(s, "player"))) {
+          c.rot = prev.rot;
+          c.spin = prev.spin;
+          c.owner = "none";
+          c.claimSeq = 0;
+          break;
+        }
+        applied.push(prev);
+      }
+      const flood = runFlood(s, "opp");
+      if (!isFinite(routeCost(s, "player"))) {
+        for (const i of flood.claimed) {
+          s.cells[i].owner = "none";
+          s.cells[i].claimSeq = 0;
+        }
+        for (const u of [...applied].reverse()) {
+          const c = s.cells[u.idx];
+          c.rot = u.rot;
+          c.spin = u.spin;
+          c.owner = "none";
+          c.claimSeq = 0;
+        }
+      }
+    }
+    {
+      const rc = routeCost(s, "opp");
+      s.oppStartCost = Math.max(1, isFinite(rc) ? rc : cfg.minCost);
+    }
+    {
+      const pd = routeCost(s, "player");
+      const base = isFinite(pd) ? pd : cfg.minCost;
+      s.par = Math.ceil(base * PAR_RATE) + (cfg.parFlat ?? PAR_FLAT);
+    }
+    s.power = computeDuelPower(s);
+    s.econ.player.ram = playerRamPerTurn;
+    return s;
+  }
+
+  // engine/duel-actions.ts
+  function emit(s, kind, n) {
+    s.fx.push({ id: s.fxNext++, kind, n });
+  }
+  function say(s, text) {
+    s.notice = { id: s.fxNext++, text };
+  }
+  function roll(s) {
+    const [v, next] = nextU32(s.rngState);
+    s.rngState = next;
+    return v;
+  }
+  function finishDuel(s, winner, kind, reason) {
+    s.phase = winner === "player" ? "won" : "lost";
+    s.winKind = kind;
+    if (reason)
+      s.endReason = reason;
+    s.notice = null;
+    emit(s, winner === "player" ? "win" : "lose");
+  }
+  function settleFloods(s, acting) {
+    for (const side of [acting, otherSide(acting)]) {
+      if (s.phase !== "playing")
+        break;
+      const f = runFlood(s, side);
+      const mine = side === "player";
+      if (f.claimed.length >= 3) {
+        emit(s, mine ? "cascade" : "cascadeOpp", f.claimed.length);
+      } else if (f.claimed.length > 0) {
+        emit(s, mine ? "claim" : "claimOpp", f.claimed.length);
+      }
+      const bonus = cascadeRam(f.claimed.length);
+      if (bonus > 0) {
+        s.econ[side].drainNext -= bonus;
+        emit(s, mine ? "cascadeRam" : "cascadeRamOpp", bonus);
+      }
+      if (f.reachedCore) {
+        finishDuel(s, side, "core", side === "player" ? "Your flood touched the core first. The intrusion collapses." : "Its flood reached the core before yours did.");
+      }
+    }
+    s.power = computeDuelPower(s);
+  }
+  function applyRotate(s, side, idx) {
+    const econ = s.econ[side];
+    if (econ.ram < 1)
+      return false;
+    const c = s.cells[idx];
+    c.rot = (c.rot + 1) % 4;
+    c.spin += 1;
+    econ.ram -= 1;
+    econ.rotations += 1;
+    emit(s, "rotate");
+    settleFloods(s, side);
+    return true;
+  }
+  function beginTurnEconomy(s, side) {
+    const econ = s.econ[side];
+    const ram = econ.ramPerTurn + econ.carry - econ.drainNext;
+    econ.drainNext = 0;
+    econ.ram = Math.max(0, ram);
+    econ.carry = 0;
+  }
+  function startOppTurn(s) {
+    s.turn = "opp";
+    s.oppTurn = { started: false, queue: [], replans: 3, lastReplanCost: Infinity, aim: null };
+    beginTurnEconomy(s, "opp");
+  }
+  function playerHasRoute(s) {
+    return isFinite(routeCost(s, "player"));
+  }
+  function endOppTurn(s) {
+    if (s.phase !== "playing")
+      return;
+    const econ = s.econ.opp;
+    econ.carry = Math.min(econ.carryCap, Math.max(0, econ.ram));
+    s.round++;
+    if (s.round > ROUND_CAP) {
+      const pd = routeCost(s, "player");
+      const od = routeCost(s, "opp");
+      const playerCloser = pd <= od;
+      finishDuel(s, playerCloser ? "player" : "opp", "cap", playerCloser ? "The link timed out with your route closer to the core than its. It counts, barely." : "The link timed out with its route closer to the core than yours.");
+      return;
+    }
+    if (!playerHasRoute(s)) {
+      s.severedStreak++;
+      if (s.severedStreak >= 2) {
+        if (isFinite(routeCost(s, "opp"))) {
+          finishDuel(s, "opp", "severed", "SEVERED. Its territory walls your port off from the core. No rotation opens a route, so the link is already lost.");
+        } else {
+          finishDuel(s, "player", "gridlock", "Total gridlock. Neither signal can reach the core. The link collapses in your favor.");
+        }
+        return;
+      }
+      say(s, "ROUTE LOST. No path from your port to the core. Open one this turn or the link is called.");
+    } else {
+      s.severedStreak = 0;
+    }
+    s.turn = "player";
+    beginTurnEconomy(s, "player");
+  }
+  function endPlayerTurn(s) {
+    if (s.phase !== "playing")
+      return;
+    const econ = s.econ.player;
+    econ.carry = Math.min(econ.carryCap, Math.max(0, econ.ram));
+    emit(s, "endTurn");
+    startOppTurn(s);
+  }
+
+  // engine/opponent.ts
+  function buildQueue(s, side) {
+    const plan = routePlan(s, side);
+    if (!plan)
+      return [];
+    return plan.steps.map((p) => ({ idx: p.idx, targetRot: p.targetRot }));
+  }
+  function computeIntent(s) {
+    const cost = routeCost(s, "opp");
+    if (!isFinite(cost))
+      s.oppNextIntent = "Probing for a route";
+    else if (cost <= 3)
+      s.oppNextIntent = "FINAL APPROACH to the core";
+    else
+      s.oppNextIntent = "Aligning junctions toward the core";
+  }
+  function pickFromQueue(s, side, queue, greed, replan) {
+    const econ = s.econ[side];
+    if (econ.ram < 1)
+      return -1;
+    while (queue.length > 0 && s.cells[queue[0].idx].rot === queue[0].targetRot)
+      queue.shift();
+    let head = queue[0];
+    if (!head) {
+      replan();
+      while (queue.length > 0 && s.cells[queue[0].idx].rot === queue[0].targetRot)
+        queue.shift();
+      head = queue[0];
+      if (!head)
+        return -1;
+    }
+    if (!canRotate(s, side, head.idx)) {
+      queue.length = 0;
+      replan();
+      while (queue.length > 0 && s.cells[queue[0].idx].rot === queue[0].targetRot)
+        queue.shift();
+      head = queue[0];
+      if (!head || !canRotate(s, side, head.idx))
+        return -1;
+    }
+    if (roll(s) >= greed) {
+      const pool = s.cells.map((_, i) => i).filter((i) => i !== head.idx && canRotate(s, side, i) && s.cells[i].owner === "none");
+      if (pool.length > 0) {
+        return pool[Math.floor(roll(s) * pool.length)];
+      }
+    }
+    return head.idx;
+  }
+  function queueRotateStep(s, side, queue, greed, replan) {
+    const idx = pickFromQueue(s, side, queue, greed, replan);
+    if (idx === -1)
+      return false;
+    return applyRotate(s, side, idx);
+  }
+  function makeReplanner(s, side, queue, mem) {
+    return () => {
+      if (mem.n <= 0)
+        return;
+      const cost = routeCost(s, side);
+      if (!(cost < mem.lastCost)) {
+        return;
+      }
+      mem.lastCost = cost;
+      mem.n--;
+      queue.length = 0;
+      queue.push(...buildQueue(s, side));
+    };
+  }
+  function botPlayTurn(s, side, greed) {
+    const queue = buildQueue(s, side);
+    const mem = { n: 3, lastCost: Infinity };
+    const replan = makeReplanner(s, side, queue, mem);
+    let guard = 0;
+    while (s.phase === "playing" && s.turn === side && s.econ[side].ram >= 1 && guard++ < 40) {
+      if (!queueRotateStep(s, side, queue, greed, replan))
+        break;
+    }
+  }
+  function oppStep(s) {
+    if (s.phase !== "playing" || s.turn !== "opp")
+      return;
+    const ot = s.oppTurn;
+    if (!ot.started) {
+      ot.started = true;
+      computeIntent(s);
+      ot.queue = buildQueue(s, "opp");
+      return;
+    }
+    if (ot.aim) {
+      const aim = ot.aim;
+      ot.aim = null;
+      if (canRotate(s, "opp", aim.idx) && s.econ.opp.ram >= 1) {
+        applyRotate(s, "opp", aim.idx);
+        return;
+      }
+    }
+    const mem = { n: ot.replans, lastCost: ot.lastReplanCost };
+    const replan = makeReplanner(s, "opp", ot.queue, mem);
+    const idx = pickFromQueue(s, "opp", ot.queue, s.cfg.greed, replan);
+    ot.replans = mem.n;
+    ot.lastReplanCost = mem.lastCost;
+    if (idx !== -1) {
+      ot.aim = { kind: "rotate", idx };
+      emit(s, "oppAim", idx);
+      return;
+    }
+    endOppTurn(s);
+  }
+
+  // engine/duel-reducer.ts
+  function cloneState(s) {
+    return {
+      ...s,
+      cells: s.cells.map((c) => ({ ...c })),
+      econ: {
+        player: { ...s.econ.player },
+        opp: { ...s.econ.opp }
+      },
+      oppTurn: { ...s.oppTurn, queue: [...s.oppTurn.queue] },
+      fx: [...s.fx]
+    };
+  }
+  function playerCanAct(s) {
+    return s.phase === "playing" && s.turn === "player";
+  }
+  function deny(s, msg) {
+    emit(s, "deny");
+    if (msg)
+      say(s, msg);
+    return s;
+  }
+  function duelReducer(state, action) {
+    switch (action.type) {
+      case "fxDrain": {
+        if (state.fx.length === 0)
+          return state;
+        return { ...state, fx: state.fx.filter((e) => e.id > action.upTo) };
+      }
+      case "rotate": {
+        if (!playerCanAct(state))
+          return state;
+        const s = cloneState(state);
+        if (s.econ.player.ram < 1)
+          return deny(s, "No RAM left. End the turn.");
+        if (!canRotate(s, "player", action.idx)) {
+          const c = s.cells[action.idx];
+          if (c && c.kind === "node" && c.owner === "opp") {
+            return deny(s, "Enemy territory. You cannot turn what its signal already holds.");
+          }
+          return deny(s, "Out of reach. Work outward from your territory.");
+        }
+        applyRotate(s, "player", action.idx);
+        return s;
+      }
+      case "endTurn": {
+        if (!playerCanAct(state))
+          return state;
+        const s = cloneState(state);
+        endPlayerTurn(s);
+        return s;
+      }
+      case "oppStep": {
+        if (state.phase !== "playing" || state.turn !== "opp")
+          return state;
+        const s = cloneState(state);
+        oppStep(s);
+        return s;
+      }
+    }
+  }
+
+  // engine/index.ts
+  function specToConfig(spec) {
+    return {
+      w: spec.grid[0],
+      h: spec.grid[1],
+      oppRam: spec.oppRam,
+      greed: spec.greed,
+      minCost: spec.minCost,
+      minPd: spec.minPd,
+      headStart: spec.headStart,
+      parFlat: spec.parFlat,
+      slag: spec.slag
+    };
+  }
+
+  // engine/browser-entry.ts
+  globalThis.KP = {
+    createDuel,
+    duelReducer,
+    canRotate,
+    routeCost,
+    rotateArms,
+    specToConfig,
+    ROUND_CAP,
+    botPlayTurn,
+    oppStep,
+    endPlayerTurn
+  };
+})();
+</script>
+<script>/**
+ * The dive, playable.
+ *
+ * Renders the real engine's DuelState as SVG and drives it with two inputs:
+ * click a junction to rotate it, or end the turn. There is nothing else,
+ * because a dive has nothing else. Rotating costs 1 RAM, RAM refills each
+ * turn, your signal floods through aligned arms and claims what it reaches,
+ * and the first flood to touch the core wins.
+ *
+ * Expects globals: KP (engine bundle) and DIVE (the crew's spec, inlined).
+ */
+
+(function () {
+  "use strict";
+
+  var CS = 48;
+  var HALF = CS / 2;
+  var SVGNS = "http://www.w3.org/2000/svg";
+
+  var spec = window.DIVE;
+  var cfg = KP.specToConfig(spec);
+  var state = null;
+  var seed = spec.seed || 1;
+  var oppTimer = null;
+
+  /* ---------------------------------------------------------------- */
+  /* svg helpers                                                       */
+  /* ---------------------------------------------------------------- */
+
+  function el(name, attrs, cls) {
+    var n = document.createElementNS(SVGNS, name);
+    if (attrs) for (var k in attrs) n.setAttribute(k, attrs[k]);
+    if (cls) n.setAttribute("class", cls);
+    return n;
+  }
+
+  /** Arm lines for a 4-bit mask. Direction order matches the engine: N E S W. */
+  function armLines(parent, mask, cls, width, half) {
+    half = half === undefined ? 24 : half;
+    var ends = [[0, -half], [half, 0], [0, half], [-half, 0]];
+    for (var d = 0; d < 4; d++) {
+      if ((mask & (1 << d)) === 0) continue;
+      parent.appendChild(el("line", {
+        x1: 0, y1: 0, x2: ends[d][0], y2: ends[d][1], "stroke-width": width,
+      }, cls));
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* board                                                             */
+  /* ---------------------------------------------------------------- */
+
+  function legalSet() {
+    var out = {};
+    if (!state || state.phase !== "playing" || state.turn !== "player") return out;
+    if (state.econ.player.ram < 1) return out;
+    for (var i = 0; i < state.cells.length; i++) {
+      if (KP.canRotate(state, "player", i)) out[i] = true;
+    }
+    return out;
+  }
+
+  function drawCell(root, cell, idx, legal) {
+    var mine = cell.owner === "player";
+    var theirs = cell.owner === "opp";
+    var lit = mine ? !!state.power.player[idx] : theirs ? !!state.power.opp[idx] : false;
+
+    var classes = ["kp-dcell"];
+    if (cell.kind === "node") {
+      classes.push(mine ? "kp-dcell-p" : theirs ? "kp-dcell-o" : "kp-dcell-n");
+      if (lit) classes.push("kp-dlit");
+    }
+    if (legal) classes.push("kp-dlegal", "kp-dlive");
+
+    var g = el("g", { transform: "translate(" + (cell.x * CS + HALF) + " " + (cell.y * CS + HALF) + ")" },
+      classes.join(" "));
+
+    g.appendChild(el("rect", { x: -HALF, y: -HALF, width: CS, height: CS, fill: "transparent" }));
+
+    if (legal) {
+      g.setAttribute("role", "button");
+      g.setAttribute("tabindex", "0");
+      g.style.cursor = "pointer";
+      g.addEventListener("click", function () { rotate(idx); });
+      g.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); rotate(idx); }
+      });
+    }
+
+    var armClass = mine ? "kp-darm-p" : theirs ? "kp-darm-o" : "kp-darm-n";
+
+    if (cell.kind === "block") {
+      var b = el("g", null, "kp-dblock");
+      b.appendChild(el("polygon", { points: "-14,-8 -4,-15 9,-12 15,-2 10,10 -2,14 -13,7" }, "kp-dblock-body"));
+      b.appendChild(el("path", { d: "M -6 -4 L 4 5 M 2 -7 L -2 2" }, "kp-dblock-crack"));
+      g.appendChild(b);
+    }
+
+    if (cell.kind === "node") {
+      var n = el("g", null, cell.claimSeq > 0 ? "kp-claimpop" : null);
+      if (cell.claimSeq > 0) n.style.animationDelay = cell.claimWave * 55 + "ms";
+      if (legal) {
+        n.appendChild(el("rect", {
+          x: -HALF + 4, y: -HALF + 4, width: CS - 8, height: CS - 8,
+        }, "kp-dlegal-ring"));
+      }
+      var arms = el("g", null, "kp-darms");
+      arms.style.transform = "rotate(" + cell.spin * 90 + "deg)";
+      armLines(arms, cell.base, armClass, 6);
+      if (lit) {
+        armLines(arms, cell.base, armClass + "-glow", 12);
+        armLines(arms, cell.base, armClass + "-lit", 3);
+      }
+      n.appendChild(arms);
+      n.appendChild(el("circle", { r: mine || theirs ? 6.5 : 5 },
+        "kp-dnode " + (mine ? "kp-dnode-p" : theirs ? "kp-dnode-o" : "kp-dnode-n")));
+      g.appendChild(n);
+    }
+
+    if (cell.kind === "entryP" || cell.kind === "entryO") {
+      var isP = cell.kind === "entryP";
+      var p = el("g", null, "kp-dport " + (isP ? "kp-dport-p" : "kp-dport-o"));
+      var pa = el("g");
+      armLines(pa, KP.rotateArms(cell.base, cell.rot), isP ? "kp-darm-p-lit" : "kp-darm-o-lit", 5);
+      p.appendChild(pa);
+      p.appendChild(el("rect", { x: -11, y: -11, width: 22, height: 22 }, "kp-dport-body"));
+      p.appendChild(el("circle", { r: 4.5 }, "kp-dport-eye"));
+      var tag = el("text", { y: 22 }, isP ? "kp-dtag" : "kp-dtag kp-dtag-o");
+      tag.textContent = isP ? "YOU" : "SIG-0";
+      p.appendChild(tag);
+      g.appendChild(p);
+    }
+
+    if (cell.kind === "core") {
+      var coreLit = !!state.power.player[idx] || !!state.power.opp[idx];
+      var c = el("g", null, coreLit ? "kp-dcore kp-dcore-lit" : "kp-dcore");
+      var ca = el("g");
+      armLines(ca, cell.base, "kp-darm-core", 5);
+      c.appendChild(ca);
+      c.appendChild(el("polygon", {
+        points: "14,0 9.9,9.9 0,14 -9.9,9.9 -14,0 -9.9,-9.9 0,-14 9.9,-9.9",
+      }, "kp-dcore-body"));
+      c.appendChild(el("circle", { r: 5 }, "kp-dcore-eye"));
+      c.appendChild(el("circle", { r: 19 }, "kp-dcore-ring"));
+      var ct = el("text", { y: 29 }, "kp-dtag");
+      ct.textContent = "CORE";
+      c.appendChild(ct);
+      g.appendChild(c);
+    }
+
+    root.appendChild(g);
+  }
+
+  function drawBoard() {
+    var host = document.getElementById("board");
+    host.textContent = "";
+    var w = state.w, h = state.h;
+    var vw = w * CS, vh = h * CS;
+
+    var svg = el("svg", {
+      viewBox: "-8 -8 " + (vw + 16) + " " + (vh + 16),
+      role: "application",
+      "aria-label": "Dive grid, " + w + " by " + h,
+    }, "kp-dboard kp-dphase-" + state.phase);
+
+    var defs = el("defs");
+    var pat = el("pattern", {
+      id: "kpDDots", width: CS, height: CS, patternUnits: "userSpaceOnUse",
+    });
+    pat.appendChild(el("circle", { cx: HALF, cy: HALF, r: 1.2 }, "kp-dot"));
+    defs.appendChild(pat);
+    svg.appendChild(defs);
+
+    svg.appendChild(el("rect", { x: -6, y: -6, width: vw + 12, height: vh + 12 }, "kp-dboard-bg"));
+    svg.appendChild(el("rect", { x: 0, y: 0, width: vw, height: vh, fill: "url(#kpDDots)" }));
+    svg.appendChild(el("rect", { x: -6, y: -6, width: vw + 12, height: vh + 12 }, "kp-dboard-frame"));
+
+    var legal = legalSet();
+    for (var i = 0; i < state.cells.length; i++) drawCell(svg, state.cells[i], i, !!legal[i]);
+    host.appendChild(svg);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* hud                                                               */
+  /* ---------------------------------------------------------------- */
+
+  function setText(id, v) { document.getElementById(id).textContent = v; }
+
+  function drawHud() {
+    var e = state.econ.player;
+    setText("ram", e.ram + " / " + e.ramPerTurn);
+    setText("round", state.round + " / " + KP.ROUND_CAP);
+    setText("turn", state.turn === "player" ? "YOUR TURN" : "SIG-0");
+    setText("rotations", e.rotations);
+    setText("par", state.par);
+
+    var pips = document.getElementById("rampips");
+    pips.textContent = "";
+    for (var i = 0; i < e.ramPerTurn; i++) {
+      var d = document.createElement("span");
+      d.className = "kp-pip" + (i < e.ram ? " kp-pip-on" : "");
+      pips.appendChild(d);
+    }
+
+    document.getElementById("endturn").disabled =
+      state.phase !== "playing" || state.turn !== "player";
+
+    var note = document.getElementById("note");
+    if (state.phase === "won") {
+      note.textContent = state.endReason || "CORE REACHED. The dive is yours.";
+      note.className = "kp-note kp-note-win";
+    } else if (state.phase === "lost") {
+      note.textContent = state.endReason || "SIG-0 reached the core first.";
+      note.className = "kp-note kp-note-loss";
+    } else if (state.turn === "opp") {
+      note.textContent = "SIG-0 is moving.";
+      note.className = "kp-note";
+    } else if (state.econ.player.ram < 1) {
+      note.textContent = "No RAM left. End the turn.";
+      note.className = "kp-note";
+    } else if (state.notice) {
+      note.textContent = state.notice.text;
+      note.className = "kp-note";
+    } else {
+      note.textContent = "Rotate a junction to steer your signal toward the core.";
+      note.className = "kp-note";
+    }
+  }
+
+  function render() { drawBoard(); drawHud(); }
+
+  /* ---------------------------------------------------------------- */
+  /* turn loop                                                         */
+  /* ---------------------------------------------------------------- */
+
+  function rotate(idx) {
+    if (state.phase !== "playing" || state.turn !== "player") return;
+    var next = KP.duelReducer(state, { type: "rotate", idx: idx });
+    if (next === state) return;
+    state = next;
+    render();
+  }
+
+  function endTurn() {
+    if (state.phase !== "playing" || state.turn !== "player") return;
+    state = KP.duelReducer(state, { type: "endTurn" });
+    render();
+    pumpOpponent();
+  }
+
+  /**
+   * The opponent moves on a timer rather than instantly, so a cascade is
+   * something you watch happen instead of something you find already done.
+   */
+  function pumpOpponent() {
+    clearTimeout(oppTimer);
+    if (state.phase !== "playing" || state.turn !== "opp") return;
+    oppTimer = setTimeout(function () {
+      var next = KP.duelReducer(state, { type: "oppStep" });
+      if (next !== state) { state = next; render(); }
+      pumpOpponent();
+    }, 260);
+  }
+
+  function start(newSeed) {
+    clearTimeout(oppTimer);
+    seed = newSeed;
+    state = KP.createDuel(cfg, seed, spec.playerRam);
+    setText("seed", seed);
+    render();
+    pumpOpponent();
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* boot                                                              */
+  /* ---------------------------------------------------------------- */
+
+  document.getElementById("endturn").addEventListener("click", endTurn);
+  document.getElementById("again").addEventListener("click", function () { start(seed); });
+  document.getElementById("next").addEventListener("click", function () { start(seed + 1); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.repeat) { e.preventDefault(); endTurn(); }
+  });
+
+  setText("difficulty", String(spec.difficulty).toUpperCase());
+  setText("gridlabel", spec.grid[0] + " x " + spec.grid[1]);
+  setText("target", spec.targetWinPct + "%");
+  start(seed);
+})();
+</script>
+</body>
+</html>

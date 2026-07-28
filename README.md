@@ -17,22 +17,21 @@ signal can never cross it. First flood to touch the core wins.
 That is the entire game here. **A grid, RAM, and turns.**
 
 Three agents design one, a simulator measures it, a gate judges it, and the
-run ends with a single HTML file you open and play.
+run ends with a single HTML file you open and play:
 
 ```
-python3 tools/build_play.py out/dive-hard.json
-open out/play-hard.html
+open out/play-normal.html
 ```
 
-No server. No install. No API key. The page has the dive spec, the game engine
-and the board styling inlined into it, so it opens by double-clicking.
+No server. No install. No API key. The page has the dive spec, the game
+engine and the board styling inlined into it, so it opens by double-clicking.
 
 ---
 
 ## Running it
 
-Requires Claude Code. `node` is used to simulate the dive and `bun` only if you
-change the engine; both are optional for opening a dive that already exists.
+Requires Claude Code. `node` runs the simulator and `bun` only rebuilds the
+engine bundle; both are optional for opening a dive that already exists.
 
 ```bash
 cd kernel-panic-level-crew
@@ -42,13 +41,16 @@ claude
 then, in the session:
 
 ```
-/make-dive hard
-/make-dive normal 9x7
+/make-dive normal
+/make-dive hard 13x11
 /make-dive 45%
 ```
 
 Difficulty is `easy`, `normal`, `hard`, `brutal`, or a bare target percentage.
 The optional second argument pins the grid; both dimensions must be odd.
+Difficulty targets are measured against a near-optimal reference bot, so each
+band sits deliberately above the human experience it produces — a `normal`
+dive has room for human mistakes.
 
 Headless:
 
@@ -56,8 +58,10 @@ Headless:
 claude -p "/make-dive hard 13x11" --permission-mode acceptEdits
 ```
 
-`out/` ships empty. Everything in it is generated, so the first run starts from
-a clean slate and nothing you see there was authored by hand.
+Everything in `out/` is generated — nothing there was authored by hand. The
+committed contents are one real run of `/make-dive normal`, kept so the
+crew's output can be inspected and played without running the pipeline; the
+next run overwrites them.
 
 ---
 
@@ -104,28 +108,36 @@ flowchart TD
 
 Each one's output is the next one's input.
 
+None of them places a junction by hand. What an agent authors is the **spec**
+— grid size, slag density, route-length target, the pressure numbers — and
+the engine grows a concrete board from that spec plus a seed, rejecting
+layouts until one passes its fairness checks. `NEXT SEED` on the playable
+page deals a fresh board from the same dive. That is why the simulator can
+play 200 different boards and still be measuring the agents' work: they
+authored the envelope every one of those boards must land inside, and the
+win rate is a property of the envelope, not of one lucky layout.
+
 ### 1. Board Architect — `board-architect`
 
 **In:** the requested difficulty, and an explicit grid if you gave one.
 **Out:** `grid`, `slag`, `minCost`, `minPd`, `parFlat`.
 
-Shapes the maze. Grid size is the dive's silhouette; slag density is what
-carves an open field into corridors so the choice of direction matters;
-`minCost` is the route length the generator aims at. It argues its shape
-against the measured calibration table rather than picking numbers by feel.
+Shapes the maze. Grid size is the dive's silhouette; slag density carves an
+open field into corridors so the choice of direction matters; `minCost` is
+the route length the generator aims at. It argues its shape against the
+measured calibration table rather than picking numbers by feel.
 
-**Remove it and:** there is no board, and the Pressure Designer has no grid to
-size its numbers against.
+**Remove it and:** there is no board, and the Pressure Designer has no grid
+to size its numbers against.
 
 ### 2. Pressure Designer — `pressure-designer`
 
 **In:** the Board Architect's grid.
 **Out:** `playerRam`, `oppRam`, `greed`, `headStart`, and a `targetWinPct`.
 
-Decides the race. `oppRam` is the strongest lever, worth 10 to 20 points of win
-rate per point. `headStart` is second and compounds with it, because ground
-SIG-0 already holds also shortens its route. Then it commits to a number, which
-the simulator immediately checks.
+Decides the race. `oppRam` is the strongest lever; `headStart` is second and
+compounds with it, because ground SIG-0 already holds also shortens its
+route. Then it commits to a number, which the simulator immediately checks.
 
 **Remove it and:** there is a board with no contest on it.
 
@@ -137,9 +149,9 @@ the simulator immediately checks.
 Asks whether this is a dive worth playing, which neither the schema check nor
 the win rate can answer alone. Is the claim near the measurement? Is the dive
 a contest rather than decided at generation? Are `headStart` and `oppRam`
-double-counting the same pressure? Every REVISE must cite a measured number or
-a line from the calibration table, and must name the agent that owns the fix.
-A verdict it cannot support drops to an advisory NOTE.
+double-counting the same pressure? Every REVISE must cite a measured number
+or a calibration row, and must name the agent that owns the fix. A verdict it
+cannot support drops to an advisory NOTE.
 
 **Remove it and:** a dive that measures 20 points off its claim ships anyway.
 
@@ -151,39 +163,33 @@ A verdict it cannot support drops to an advisory NOTE.
 |---|---|---|---|---|
 | asks | is the engine still bare? | is the spec well formed? | is it a contest? | is it worth playing? |
 | kind | static grep + 300 played dives | stdlib Python | the engine, 200 dives | an agent with judgment |
-| catches | any program, trap or cast code reaching back into `engine/` | out-of-range knobs, even grid dimensions, out-of-scope keys | unwinnable, uncontested, or off-target dives | double-counted levers, a bad claim, a dive over in two rounds |
+| catches | any program, trap or cast code in `engine/` | out-of-range knobs, even grid dimensions, out-of-scope keys | unwinnable, uncontested, or off-target dives | double-counted levers, a bad claim, a dive over in two rounds |
 | verdict | exit 0 / exit 1 naming the file and line | exit 0 / exit 1 | exit 0 / exit 1 with the measured number | APPROVE, REVISE citing a number, or NOTE |
 
-`simulate.mjs` plays the dive with `botPlayTurn`, the engine's own
-route-following bot, at greed 0.95. Every row of `reference/difficulty.md` was
-measured the same way, so the agents argue from numbers this repo can
-reproduce on demand rather than from intuition.
-
-`check_bare.mjs` runs first, before any agent is spawned. A dive authored on an
-engine that can cast is not a dive, so the run stops there.
+Mechanical rules live in scripts, which cannot be talked out of a verdict.
+Empirical questions go to the simulator, which plays the dive 200 times with
+the engine's own route-following bot — the same harness that measured every
+row of `reference/difficulty.md`, so the agents argue from numbers this repo
+reproduces on demand. Judgment goes to the gate, constrained by having to
+cite one of the other two. `check_bare.mjs` runs first, before any agent is
+spawned.
 
 ---
 
 ## The engine has nothing but the grid
 
-`engine/` is the shipped game's duel engine with everything that is not a
-rotation race **deleted**: no programs, no modes, no traps, no locks, no wards,
-no augments, no patch pieces, no program tiers. 2836 lines became 1394. What
-remains is board generation, flood and claim, cascade resolution, the
-rotation-cost router, and the opponent's route planner. No external
-dependencies, so it bundles to 26 KB of plain JavaScript.
+`engine/` holds the duel engine: board generation, flood and claim, cascade
+resolution, the rotation-cost router, and SIG-0's route planner. Roughly
+1400 lines, no external dependencies, bundling to 26 KB of plain JavaScript.
 
-That deletion is the design, and it was learned the hard way. The first version
-vendored the engine whole and switched the program layer off by configuration:
-`abilityFreq: 0`. That looked right and was not. `abilityFreq` gates only one of
-five cast rules in the opponent's planner, so the intrusion cast REDIRECT in 49
-of 60 dives. Configuration was never going to hold, because the capability was
-still sitting in the codebase waiting for a mistake.
-
-So there is no cast path left to misconfigure, and `tools/check_bare.mjs` keeps
-it that way. The board's SVG rendering and every `kp-d*` style still come from
-the shipped game, so a generated dive looks like the real board rather than a
-mock of it.
+What it deliberately does not hold: programs, modes, traps, locks, wards,
+augments. An early build of this repo kept that ability code and switched it
+off by configuration — `abilityFreq: 0`. That looked right and was not: the
+flag gated only one of five cast rules in SIG-0's planner, so the intrusion
+cast REDIRECT in 49 of 60 dives. Capability that is merely configured off is
+capability waiting for a mistake, so the code was removed outright, and
+`tools/check_bare.mjs` asserts it stays gone — statically, and by playing
+300 dives and watching what they emit.
 
 Rebuild the browser bundle after any engine change:
 
@@ -196,29 +202,24 @@ bun build engine/browser-entry.ts --outfile=play/engine.bundle.js \
 
 ## What a run produces
 
-`out/` ships empty. `/make-dive hard 13x11` fills it with seven files:
+`/make-dive normal` fills `out/` with seven files:
 
 ```
-out/BRIEF.md                        the brief, written by the orchestrator
-out/proposals/board-architect.json  grid, slag, route length
+out/BRIEF.md                          the brief, written by the orchestrator
+out/proposals/board-architect.json    grid, slag, route length
 out/proposals/pressure-designer.json  RAM, greed, head start, claimed win rate
-out/dive-hard.json                  the two proposals assembled
-out/sim.txt                         200 dives, measured
-out/gate/review.md                  APPROVE / REVISE per item
-out/play-hard.html                  open this and play
+out/dive-normal.json                  the two proposals assembled
+out/sim.txt                           200 dives, measured
+out/gate/review.md                    APPROVE / REVISE per item
+out/play-normal.html                  open this and play
 ```
 
-For reference, that invocation during development produced a 13x11 board at
-slag 0.18, `playerRam` 5 against `oppRam` 7, greed 0.85, head start 2. The
-Pressure Designer **claimed 32% and the simulator measured 31.5%** over 200
-seeds, centred in the 28-40% band `hard` asks for, at 2.3 rounds average.
-
-Both items were approved, but the gate still caught the Board Architect
-overstating its own source: its rationale claimed 13x11 runs "2.9-3.1 rounds
-regardless of pressure" when the row actually chosen measures 2.3. It recorded
-that without failing the item, since the grid had been mandated by the
-invocation rather than chosen. Your run will differ; the agents are not
-deterministic.
+The run committed in `out/` is one such invocation: an 11x9 board at
+slag 0.18, `playerRam` 5 against `oppRam` 6 with no head start. The Pressure
+Designer **claimed 71% and the simulator measured 71.0%** over 200 seeds —
+mid-band for `normal` (60-75%), 3.5 rounds average — and the gate approved
+all four items, each verdict citing a calibration row or a measured number.
+Your run will differ; the agents are not deterministic.
 
 ---
 
@@ -234,39 +235,39 @@ kernel-panic-level-crew/
     agents/                     board-architect, pressure-designer, dive-gate
     skills/make-dive/SKILL.md   the orchestration program behind /make-dive
   reference/
-    difficulty.md               measured calibration table and what each knob does
+    difficulty.md               measured calibration table, difficulty bands
     schema.md                   proposal shapes and the assembled dive
-  engine/                       the game's duel engine, vendored
+  engine/                       the duel engine
   play/
     engine.bundle.js            prebuilt browser bundle, committed
-    play.css                    board styles, lifted from the shipped game
+    play.css                    board styles
     play.js                     board renderer and turn loop
     shell.html                  page template the build fills in
   tools/
     verify_dive.py              structure and ranges
     simulate.mjs                200 dives, measured win rate
     build_play.py               inlines everything into one openable file
-  out/                          empty; every run writes here, all of it ignored
+  out/                          one committed run; /make-dive overwrites it
 ```
 
 ---
 
 ## Roadmap
 
-The dive is the floor of the game: every other system in *Kernel Panic* sits on
-top of a rotation race, so it is the piece worth getting right first.
+The dive is the floor of *Kernel Panic*: every other system in the design
+sits on top of the rotation race, so it is the piece worth getting right
+first.
 
-- **Programs.** The full game has SCAN, ATTACK and DEFEND with six modes
-  between them. Adding them back here means deliberately porting that code in
-  from the game and widening `check_bare.mjs`'s allowed vocabulary, which is a
-  decision someone has to make on purpose. That is the point of having deleted
-  it rather than disabled it.
-- **Loadout.** Eighteen augments exist in the full game. A loadout agent
-  choosing the player's answer to a given intrusion is the natural fourth seat,
-  once programs are back.
-- **Tuning loop.** The simulator currently reports and the gate assigns blame.
-  Feeding the measured number straight back to the Pressure Designer and
-  re-running until it converges makes the target self-correcting.
+- **Programs.** The full design adds SCAN, ATTACK and DEFEND, with six modes
+  between them. Bringing them in means building that layer deliberately and
+  widening `check_bare.mjs`'s allowed vocabulary, which is a decision someone
+  has to make on purpose. That is the point of the checker.
+- **Loadout.** The design has eighteen augments. A loadout agent choosing the
+  player's answer to a given intrusion is the natural fourth seat, once
+  programs exist.
+- **Tuning loop.** The simulator reports and the gate assigns blame. Feeding
+  the measured number straight back to the Pressure Designer and re-running
+  until it converges makes the target self-correcting.
 - **Boards worth remembering.** `minCost` and `slag` produce texture by
   accident. An agent that reads a generated board and judges whether it is
   interesting, rather than merely fair, would close the last gap between a

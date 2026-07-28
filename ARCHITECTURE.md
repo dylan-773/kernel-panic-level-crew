@@ -82,10 +82,10 @@ is reaching for a different game, and that is caught structurally rather than
 left to review.
 
 A fourth check guards the engine itself. `node tools/check_bare.mjs` asserts
-that the program layer is absent rather than disabled, statically and by
-playing 300 dives and watching what they emit. It exists because the first
-version of this repo tried to disable the program layer by configuration and
-shipped an intrusion that cast REDIRECT in 49 of 60 dives.
+that the engine can do nothing but the rotation race, statically and by
+playing 300 dives and watching what they emit. It exists because an early
+build of this repo kept ability code behind a config flag instead of removing
+it, and the intrusion cast REDIRECT in 49 of 60 dives.
 
 ## Failure paths
 
@@ -110,7 +110,7 @@ Nothing here fails silently.
 ## The playable page
 
 `build_play.py` inlines four things into `play/shell.html`: the dive spec, the
-58 KB engine bundle, the board stylesheet, and the renderer. The result is one
+26 KB engine bundle, the board stylesheet, and the renderer. The result is one
 file with no external references at all.
 
 That constraint is not tidiness. A browser refuses to load ES modules or fetch
@@ -121,6 +121,6 @@ is the whole point of the deliverable.
 The renderer is about 300 lines of plain DOM code. It draws `DuelState` as SVG
 and sends exactly two things back to the engine: `rotate` with a cell index,
 and `endTurn`. Everything else, including the flood, the cascade, the claim
-ordering and SIG-0's entire turn, happens inside the vendored engine. The
+ordering and SIG-0's entire turn, happens inside the engine. The
 opponent steps on a 260 ms timer rather than resolving instantly, so a cascade
 is something you watch happen instead of something you find already done.

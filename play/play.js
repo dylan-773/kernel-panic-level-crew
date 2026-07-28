@@ -207,7 +207,7 @@
 
     var note = document.getElementById("note");
     if (state.phase === "won") {
-      note.textContent = "CORE REACHED. The dive is yours.";
+      note.textContent = state.endReason || "CORE REACHED. The dive is yours.";
       note.className = "kp-note kp-note-win";
     } else if (state.phase === "lost") {
       note.textContent = state.endReason || "SIG-0 reached the core first.";

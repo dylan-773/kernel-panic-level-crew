@@ -1,0 +1,15 @@
+{
+  "id": "normal",
+  "difficulty": "normal",
+  "seed": 1,
+  "grid": [11, 9],
+  "playerRam": 5,
+  "oppRam": 6,
+  "greed": 0.85,
+  "minCost": 22,
+  "minPd": 8,
+  "headStart": 0,
+  "slag": 0.18,
+  "parFlat": 3,
+  "targetWinPct": 71
+}

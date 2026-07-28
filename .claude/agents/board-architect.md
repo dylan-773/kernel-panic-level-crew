@@ -34,7 +34,7 @@ Designer), and you do not judge the finished dive (Dive Gate).
   default shape. 13x11 gives a dive room to breathe and runs a round or two
   longer. Nothing larger than 15x13 stays readable on one screen.
 - **Slag is texture, not difficulty.** Dead junctions carve the open field into
-  routes and make the choice of direction matter. 0.18 is the shipped default.
+  routes and make the choice of direction matter. 0.18 is the proven default.
   Push to 0.22 when you want a board with obvious corridors. Past 0.25 the
   generator starts failing to find a fair board at all, so do not go there.
 - **`minCost` is an ask, not a promise.** The generator aims at it and gives up

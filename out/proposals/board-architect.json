@@ -1,0 +1,17 @@
+{
+  "agent": "board-architect",
+  "brief": "normal",
+  "notes": "Brief leaves the grid open, so I picked the default shape and tuned slag/minCost/minPd to fit it. Grid size is the pacing lever, not the difficulty lever (reference/difficulty.md, 'What each knob does'); oppRam and headStart are the Pressure Designer's to set.",
+  "items": [
+    {
+      "type": "board",
+      "id": "board",
+      "grid": [11, 9],
+      "slag": 0.18,
+      "minCost": 22,
+      "minPd": 8,
+      "parFlat": 3,
+      "rationale": "11x9 is the default shape (reference/difficulty.md grid guidance): roomier than 9x7's tight/quick read but without 13x11's extra breathing room, landing dives near 3 rounds per the Rounds section. It keeps the normal band easily reachable at headStart 0, which the named-difficulties table calls out as the preferred setting for `normal` (mistakes should be tolerated, not compounded by starting behind): the measured table shows 11x9/oppRam 6/headStart 0 at 71.0% win rate, squarely inside the 60-75% target, leaving the Pressure Designer oppRam 5-6 as the calibrated knob. slag stays at the proven default 0.18 for corridor texture without risking the generation failures that start past 0.25. minCost is set to 2x width (22), the achievable target the calibration table cites, and minPd 8 covers roughly one and a half turns of the assumed playerRam 5 so a lucky board can't close in a single opening move."
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "agent": "pressure-designer",
+  "brief": "normal",
+  "notes": "Board Architect committed 11x9 at the defaults the calibration table assumes. I hold playerRam at 5, use oppRam as the primary lever, keep headStart at 0 per the normal-band guidance, and leave greed at the competent default.",
+  "items": [
+    {
+      "type": "pressure",
+      "id": "pressure",
+      "playerRam": 5,
+      "oppRam": 6,
+      "greed": 0.85,
+      "headStart": 0,
+      "targetWinPct": 71,
+      "rationale": "Measured table, 11x9 rows: oppRam 5/headStart 0 sits at 87.5% (too easy for a 60-75% band), oppRam 6/headStart 0 sits at 71.0% (avg 3.5 rounds), and oppRam 7/headStart 0 sits at 61.0% (avg 3.3 rounds, the band's floor). oppRam 6 lands almost exactly on a measured row rather than between two, so I take it directly. headStart stays at 0 per the named-difficulties note that normal must tolerate mistakes rather than start the player already behind; the 13x11+ 'oppRam 5, headStart 2' alternative for normal doesn't apply since the Architect chose 11x9. greed stays at the calibration default 0.85 (competent, not merciless) since oppRam and grid already land the target without needing the fine adjustment. Avg 3.5 rounds also clears the 3-round-minimum guidance for 11x9-and-larger boards."
+    }
+  ]
+}

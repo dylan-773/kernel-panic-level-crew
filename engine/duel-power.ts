@@ -268,7 +268,10 @@ export function routePlan(
     if (depth < 4) {
       const nextAvoid = new Set(avoid ?? []);
       nextAvoid.add(conflict);
-      return routePlan(s, side, nextAvoid, depth + 1);
+      const rerouted = routePlan(s, side, nextAvoid, depth + 1);
+      // The avoid set can disconnect the board entirely; that null means
+      // "no CLEAN route", not "no route". Fall through to the approx plan.
+      if (rerouted) return rerouted;
     }
     // Out of reroutes. Reporting null here reads as "no route exists", which
     // is how a still-winnable dive used to end in an instant severed loss.

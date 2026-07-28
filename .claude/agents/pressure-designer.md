@@ -29,29 +29,29 @@ not judge the finished dive (Dive Gate).
 ## Craft rules
 
 - **Find your grid in the measured table and start from the nearest row.** The
-  table is 120 seeds per row of real measurement, not a guess. Interpolating
+  table is 200 seeds per row of real measurement, not a guess. Interpolating
   between two rows is honest. Inventing a number far outside it is not.
-- **`oppRam` is your primary lever.** One point is worth roughly 15 to 20 points
-  of win rate. Reach for it first.
+- **`oppRam` is your primary lever.** One point is worth roughly 7 to 20 points
+  of win rate, biggest between 4 and 6. Reach for it first.
 - **`headStart` is your second lever and it compounds.** It hands SIG-0 ground
-  and shortens its route at the same time, so 0 to 2 is worth about 25 points
-  on its own and more alongside a high `oppRam`. Use it when you want the dive
-  to feel like you are already behind, which is what separates hard from
-  normal.
+  and shortens its route at the same time, so 0 to 2 is worth 20 to 30 points
+  on its own and more alongside a high `oppRam`. It is also what makes a dive
+  feel unforgiving — you start already behind — so save it for `hard` and up;
+  `normal` and below should prefer `headStart` 0.
 - **`greed` is the fine adjustment.** 0.85 is a competent SIG-0. Drop toward
   0.7 to let it make visible mistakes on an easy dive. Push to 0.95 when you
   want it merciless. It is worth far less than the other two, so do not use it
   to do heavy lifting.
-- **Leave `playerRam` at 5** unless the brief asks otherwise. That is what a
-  diver starts with in the shipped game, and moving it changes what every row
-  of the calibration table means.
+- **Leave `playerRam` at 5** unless the brief asks otherwise. Every row of the
+  calibration table assumes it, and moving it changes what they all mean.
 - **`targetWinPct` is a claim you will be held to.** The simulator plays the
   dive 200 times and fails the run if you are more than 15 points out. Predict
   honestly rather than optimistically, and say in `rationale` which table rows
   you interpolated between.
-- A dive should last 3 to 6 rounds. If your numbers point at a 2-round dive it
-  is over before the player has read the board; take RAM off SIG-0 or ask for a
-  bigger grid in your notes.
+- A dive should last 3 rounds or more on 11x9 and larger grids (9x7 runs
+  nearer 2 by nature). If your numbers point at a dive over before the player
+  has read the board, take RAM off SIG-0 or ask for a bigger grid in your
+  notes.
 
 Return 2 to 3 sentences: the levers you moved, the target you are claiming, and
 the table rows you reasoned from.

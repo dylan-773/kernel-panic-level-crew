@@ -252,7 +252,9 @@
       if (depth < 4) {
         const nextAvoid = new Set(avoid ?? []);
         nextAvoid.add(conflict);
-        return routePlan(s, side, nextAvoid, depth + 1);
+        const rerouted = routePlan(s, side, nextAvoid, depth + 1);
+        if (rerouted)
+          return rerouted;
       }
       return { cost: total, path, steps: path.filter((p) => p.turns > 0), approx: true };
     }
