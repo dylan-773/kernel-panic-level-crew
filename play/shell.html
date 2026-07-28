@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>__TITLE__</title>
+<style>
+__CSS__
+
+/* ---- dive shell: the frame around the board ---- */
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--kp-bg0); color: var(--kp-text);
+  font-family: var(--kp-mono);
+}
+.kp-wrap {
+  height: 100%; display: flex; flex-direction: column;
+  gap: 10px; padding: 14px 16px 16px; max-width: 1400px; margin: 0 auto;
+}
+.kp-top {
+  display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--kp-line); padding-bottom: 8px;
+}
+.kp-title { font-size: 13px; letter-spacing: 0.18em; color: var(--kp-signal); }
+.kp-sub { font-size: 11px; letter-spacing: 0.12em; color: var(--kp-dim); }
+.kp-sub b { color: var(--kp-steel); font-weight: 400; }
+.kp-spacer { flex: 1; }
+
+.kp-stage {
+  flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+}
+.kp-dboard { max-height: 100%; max-width: 100%; }
+
+.kp-dock {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  border-top: 1px solid var(--kp-line); padding-top: 10px;
+}
+.kp-stat { display: flex; flex-direction: column; gap: 3px; }
+.kp-stat-k { font-size: 9px; letter-spacing: 0.16em; color: var(--kp-dim); }
+.kp-stat-v { font-size: 15px; color: var(--kp-text); }
+.kp-stat-v.kp-hot { color: var(--kp-signal); }
+
+.kp-pips { display: flex; gap: 3px; margin-top: 4px; }
+.kp-pip {
+  width: 9px; height: 14px; border: 1px solid var(--kp-line);
+  background: transparent;
+}
+.kp-pip-on { background: var(--kp-signal); border-color: var(--kp-signal); }
+
+button {
+  font-family: var(--kp-mono); font-size: 11px; letter-spacing: 0.14em;
+  color: var(--kp-text); background: var(--kp-panel);
+  border: 1px solid var(--kp-line); padding: 9px 16px; cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--kp-signal); color: var(--kp-signal); }
+button:disabled { opacity: 0.35; cursor: default; }
+#endturn { border-color: var(--kp-rose); color: var(--kp-rose); }
+#endturn:hover:not(:disabled) { background: var(--kp-rose-soft); color: var(--kp-rose-hot); }
+
+.kp-note {
+  font-size: 11px; letter-spacing: 0.08em; color: var(--kp-dim);
+  min-height: 16px; padding-top: 2px;
+}
+.kp-note-win { color: var(--kp-signal); }
+.kp-note-loss { color: var(--kp-crimson); }
+</style>
+</head>
+<body>
+<div class="kp-wrap">
+
+  <div class="kp-top">
+    <span class="kp-title">KERNEL PANIC / DIVE</span>
+    <span class="kp-sub">DIFFICULTY <b id="difficulty">-</b></span>
+    <span class="kp-sub">GRID <b id="gridlabel">-</b></span>
+    <span class="kp-sub">SEED <b id="seed">-</b></span>
+    <span class="kp-spacer"></span>
+    <span class="kp-sub">SIM WIN RATE <b id="target">-</b></span>
+  </div>
+
+  <div class="kp-stage"><div id="board" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"></div></div>
+
+  <div class="kp-note" id="note"></div>
+
+  <div class="kp-dock">
+    <div class="kp-stat">
+      <span class="kp-stat-k">RAM</span>
+      <span class="kp-stat-v kp-hot" id="ram">-</span>
+      <span class="kp-pips" id="rampips"></span>
+    </div>
+    <div class="kp-stat">
+      <span class="kp-stat-k">ROUND</span>
+      <span class="kp-stat-v" id="round">-</span>
+    </div>
+    <div class="kp-stat">
+      <span class="kp-stat-k">TURN</span>
+      <span class="kp-stat-v" id="turn">-</span>
+    </div>
+    <div class="kp-stat">
+      <span class="kp-stat-k">ROTATIONS / PAR</span>
+      <span class="kp-stat-v"><span id="rotations">-</span> / <span id="par">-</span></span>
+    </div>
+    <span class="kp-spacer"></span>
+    <button id="endturn">END TURN &nbsp;[ENTER]</button>
+    <button id="again">REPLAY SEED</button>
+    <button id="next">NEXT SEED</button>
+  </div>
+
+</div>
+
+<script>window.DIVE = __DIVE__;</script>
+<script>__ENGINE__</script>
+<script>__PLAY__</script>
+</body>
+</html>

@@ -1,44 +1,38 @@
-# Level Crew — an agent crew that builds levels for *Kernel Panic*
+# Dive Crew — an agent crew that builds playable levels for *Kernel Panic*
 
 **Game: Kernel Panic.** A cyberpunk roguelike about inheriting your father's
 computer repair shop. Every repair ticket is an intrusion: something alive is
-inside a customer's machine, and fixing it means diving in and fighting it on a
-grid of pipe junctions, racing it to the core. You get ten days per run. Nine
-working days of three tickets each, then the padlocked back room settles up.
+inside a customer's machine, and clearing it means diving into the device and
+racing it to the core.
 
-**What this crew produces: one complete working day.** In *Kernel Panic* the
-day is the unit of level design. Building one means producing four things that
-have to agree with each other:
+**What this crew produces: one dive, playable in your browser.**
 
-1. the day's **difficulty configuration** — grid size, the intrusion's RAM
-   pool, how greedily it pushes for the core, how deep it already sits when you
-   link in, and the difficulty tier of each of the three tickets
-2. the **customers** whose tickets fill those tiers — a person, the machine
-   they brought in, the dominant mode of the intrusion inside it, and the lines
-   they say at the counter before and after you dive
-3. the **day line** that opens the day on the terminal
-4. a **DAD.LOG journal entry** unlocked around that point in the run
+A dive is a grid of scrambled pipe junctions. Your port sits on one side,
+SIG-0's on the other, the core in the middle. Rotating a junction is the only
+move you have and it costs 1 RAM. When arms line up, your signal floods
+through them and claims every neutral node it reaches, so one good rotation
+can cascade a whole chain at once. Claimed ground is permanent and the enemy
+signal can never cross it. First flood to touch the core wins.
 
-Three agents produce those four things in sequence, a fourth gates them for
-canon, and a deterministic script verifies the result against the invariants
-the real game enforces. Output lands as `out/level-<n>.json` and
-`out/level-<n>.ts`, the latter formatted to paste straight into the game's
-`arc.ts`, `customers.ts`, `story.ts` and `journal.ts`.
+That is the entire game here. **A grid, RAM, and turns.**
 
-The crew starts at the level-authoring lane because that lane touches every
-other one: difficulty, cast, and copy all have to agree before anything else in
-the game can be built on top of them. The architecture is designed to grow from
-here, and the roadmap at the end of this file says where it goes next.
+Three agents design one, a simulator measures it, a gate judges it, and the
+run ends with a single HTML file you open and play.
 
-It runs on Claude alone. Core file tools, no MCP servers, no API key, no
-install step, nothing to configure.
+```
+python3 tools/build_play.py out/dive-hard.json
+open out/play-hard.html
+```
+
+No server. No install. No API key. The page has the dive spec, the game engine
+and the board styling inlined into it, so it opens by double-clicking.
 
 ---
 
 ## Running it
 
-Requires Claude Code. Nothing else — no `pip install`, no `ANTHROPIC_API_KEY`,
-no network services.
+Requires Claude Code. `node` is used to simulate the dive and `bun` only if you
+change the engine; both are optional for opening a dive that already exists.
 
 ```bash
 cd kernel-panic-level-crew
@@ -48,20 +42,22 @@ claude
 then, in the session:
 
 ```
-/make-level 6
+/make-dive hard
+/make-dive normal 9x7
+/make-dive 45%
 ```
 
-Any day from 1 to 9. Day 10 is the game's scripted finale and is out of scope.
+Difficulty is `easy`, `normal`, `hard`, `brutal`, or a bare target percentage.
+The optional second argument pins the grid; both dimensions must be odd.
 
-Headless, if you would rather not sit in the session:
+Headless:
 
 ```bash
-cd kernel-panic-level-crew
-claude -p "/make-level 6" --permission-mode acceptEdits
+claude -p "/make-dive hard 13x11" --permission-mode acceptEdits
 ```
 
-A completed example run is committed under `out/`, so you can read the output
-without spending tokens.
+A completed run is committed under `out/`, so you can open a dive and play it
+without spending a token.
 
 ---
 
@@ -69,207 +65,162 @@ without spending tokens.
 
 ```mermaid
 flowchart TD
-    U(["User: /make-level 6"]) --> O["Orchestrator<br/>.claude/skills/make-level<br/>spawns agents, carries handoffs"]
-    O --> B[/"out/BRIEF.md<br/>day, target win rate, scope"/]
+    U(["/make-dive hard 13x11"]) --> O["Orchestrator<br/>.claude/skills/make-dive"]
+    O --> B[/"out/BRIEF.md<br/>difficulty, target win rate, grid"/]
 
-    REF[("reference/<br/>bible.md · schema.md · shipped.md")]
+    REF[("reference/<br/>difficulty.md · schema.md")]
 
-    B --> AC["1 · Arc Composer<br/>in: day, target win rate<br/>out: dayconfig-delta"]
-    AC -->|"jobTiers [3,3,3]"| EG["2 · Encounter Generator<br/>in: the day's job tiers<br/>out: customer profiles"]
-    EG -->|"customers + devices"| ND["3 · Narrative Director<br/>in: day config, customers<br/>out: dayline + journal"]
-    AC -->|"day config"| ND
+    B --> BA["1 · Board Architect<br/>in: difficulty, optional grid<br/>out: grid, slag, route length"]
+    BA -->|"grid 13x11"| PD["2 · Pressure Designer<br/>in: the board<br/>out: RAM both sides, greed,<br/>head start, target win %"]
 
-    REF -.->|"canon, schema, shipped roster"| AC
-    REF -.-> EG
-    REF -.-> ND
-    REF -.-> LM
+    REF -.->|"measured calibration table"| BA
+    REF -.-> PD
+    REF -.-> GT
 
-    AC --> P[("out/proposals/*.json")]
-    EG --> P
-    ND --> P
+    BA --> P[("out/proposals/*.json")]
+    PD --> P
+    P --> V{{"verify_dive.py<br/>shape, ranges, odd grid, scope"}}
+    V -->|"malformed"| BA
+    V -->|"out of range"| PD
+    V -->|"clean"| ASM["assemble<br/>out/dive-hard.json"]
 
-    P --> V1{{"verify_level.py --stage<br/>run after each agent"}}
-    V1 -->|"malformed"| AC
-    V1 -->|"tier gap"| EG
-    V1 -->|"bad copy shape"| ND
-    V1 -->|"clean"| LM
+    ASM --> SIM{{"simulate.mjs<br/>200 dives, engine's own bot"}}
+    SIM --> SR[/"out/sim.txt<br/>measured win rate vs claim"/]
 
-    LM["4 · Loremaster<br/>in: all proposals + bible<br/>out: APPROVE / REVISE per item"]
-    LM --> G[/"out/gate/review.md<br/>every REVISE quotes a bible line"/]
+    SR --> GT["3 · Dive Gate<br/>in: proposals + measurement<br/>out: APPROVE / REVISE per item"]
+    GT --> G[/"out/gate/review.md"/]
 
-    G -->|"REVISE + citation"| RV{"revision round<br/>max 1"}
-    RV -->|"re-run only the owning agent"| AC
-    RV -->|"re-run only the owning agent"| EG
-    RV -->|"re-run only the owning agent"| ND
-    RV -->|"still contested after round 2"| DROP(["dropped, reported to user"])
+    G -->|"REVISE, names the owning agent"| RV{"revision round<br/>max 1"}
+    RV --> BA
+    RV --> PD
 
-    G -->|"all APPROVE"| V2{{"verify_level.py<br/>full pass"}}
-    V2 -->|"exit 1, gap named"| RV
-    V2 -->|"exit 0"| OUT[/"out/level-6.json<br/>out/level-6.ts"/]
-    OUT --> GAME(["paste into Kernel Panic:<br/>arc.ts · customers.ts · story.ts · journal.ts"])
+    G -->|"all APPROVE"| BLD["build_play.py<br/>inline spec + engine + board"]
+    BLD --> PLAY(["out/play-hard.html<br/>open it and play"])
 ```
 
-`ARCHITECTURE.md` has the same diagram plus notes on why the data flows in this
-order and how the two kinds of checking differ.
+---
+
+## The three agents
+
+Each one's output is the next one's input.
+
+### 1. Board Architect — `board-architect`
+
+**In:** the requested difficulty, and an explicit grid if you gave one.
+**Out:** `grid`, `slag`, `minCost`, `minPd`, `parFlat`.
+
+Shapes the maze. Grid size is the dive's silhouette; slag density is what
+carves an open field into corridors so the choice of direction matters;
+`minCost` is the route length the generator aims at. It argues its shape
+against the measured calibration table rather than picking numbers by feel.
+
+**Remove it and:** there is no board, and the Pressure Designer has no grid to
+size its numbers against.
+
+### 2. Pressure Designer — `pressure-designer`
+
+**In:** the Board Architect's grid.
+**Out:** `playerRam`, `oppRam`, `greed`, `headStart`, and a `targetWinPct`.
+
+Decides the race. `oppRam` is the strongest lever in the file, worth roughly
+15 to 20 points of win rate per point. `headStart` is second and compounds
+with it, because ground SIG-0 already holds also shortens its route. Then it
+commits to a number, which the simulator immediately checks.
+
+**Remove it and:** there is a board with no contest on it.
+
+### 3. Dive Gate — `dive-gate`
+
+**In:** both proposals plus the simulator's measured numbers.
+**Out:** `out/gate/review.md`, APPROVE / REVISE / NOTE per item.
+
+Asks whether this is a dive worth playing, which neither the schema check nor
+the win rate can answer alone. Is the claim near the measurement? Is the dive
+a contest rather than decided at generation? Are `headStart` and `oppRam`
+double-counting the same pressure? Every REVISE must cite a measured number or
+a line from the calibration table, and must name the agent that owns the fix.
+A verdict it cannot support drops to an advisory NOTE.
+
+**Remove it and:** a dive that measures 20 points off its claim ships anyway.
 
 ---
 
-## The four agents
+## Two kinds of checking
 
-Each one's output is the next one's input. None can be removed without the
-pipeline breaking, and the table's last column says exactly how.
+| | `verify_dive.py` | `simulate.mjs` | Dive Gate |
+|---|---|---|---|
+| asks | is it well formed? | is it a contest? | is it worth playing? |
+| kind | stdlib Python | the real engine, 200 dives | an agent with judgment |
+| catches | bad ranges, even grid dimensions, out-of-scope keys | unwinnable, uncontested, or off-target dives | double-counted levers, a bad claim, a dive over in two rounds |
 
-### 1. Arc Composer — `level-arc-composer`
-
-**In:** the day number and its target win rate.
-**Out:** one `dayconfig-delta` item — `grid`, `oppRam`, `greed`, `abilityFreq`,
-`minCost`, `minPd`, `headStart`, `parFlat`, `slag`, `patchDrop`, `jobTiers`.
-
-The entire difficulty design of *Kernel Panic* is one table, and this agent
-writes one row of it. It positions the day against its neighbours in the
-shipped curve and argues its numbers against a target win rate rather than
-picking them by feel.
-
-**Remove it and:** there is no day. There is also no `jobTiers` array, which is
-the only input the Encounter Generator has.
-
-### 2. Encounter Generator — `level-encounter-generator`
-
-**In:** the `jobTiers` array from the Arc Composer's proposal.
-**Out:** `customer` items — name, device, portrait, two intake quotes, a win
-line, a loss line, the tiers they appear at, and the intrusion's dominant mode.
-
-Each customer is a person with one strange, concrete, slightly wrong object,
-and an intrusion whose behaviour matches the object's personality. A possessive
-heirloom locks. A hungry kiosk siphons. The dominant mode is one of exactly
-six, because the game's Analyze screen has a tell for six and no more.
-
-**Remove it and:** the day has three tickets with nobody attached to them. Tier
-coverage is an engine invariant, not a nicety — a day asking for a tier 4
-ticket with no tier 4 customer fails at ticket generation.
-
-### 3. Narrative Director — `level-narrative-director`
-
-**In:** the day config and the customer list.
-**Out:** one `dayline` item and one `journal` item.
-
-The day line is the single authored sentence between the player and three hours
-of grid combat. It reads the mechanics as subtext: if the Arc Composer raised
-head start, the intrusion is inside before you sit down, and the line can say
-so without ever saying "head start". The journal entry is DAD.LOG, the player's
-own log, and it is bound by a reveal schedule — it may notice the back room but
-never explain it.
-
-**Remove it and:** the day never opens. The engine asserts at least nine day
-lines exist; a day without one has no way to present itself.
-
-### 4. Loremaster — `level-loremaster`
-
-**In:** all three proposals plus the setting bible.
-**Out:** `out/gate/review.md` — APPROVE, REVISE or NOTE for every item, plus a
-tally.
-
-The canon gate. It asks one question of every item: is it true? True to the
-world, true to the voice, true to what the player is allowed to know at that
-point in the story. **Every REVISE must quote the bible line it rests on.** If
-it cannot find a line to quote, it may not block; the verdict downgrades to an
-advisory NOTE. That rule is what keeps the gate from being an unfalsifiable
-second opinion with veto power.
-
-**Remove it and:** nothing checks whether a customer just revealed the plot,
-whether a device duplicates a shipped regular, or whether the day line broke
-voice. The mechanical verifier cannot catch any of those.
-
-### The revision loop
-
-A REVISE does not end the run. The orchestrator re-spawns **only** the agent
-that owns the flagged item, hands it the objection and the quoted bible line,
-and tells it to revise those items and leave everything else untouched. Then it
-re-gates. One round; anything still contested is dropped from the level and
-reported rather than integrated quietly.
+`simulate.mjs` plays the dive with `botPlayTurn`, the engine's own routing bot,
+at the same greed the shipped game uses to calibrate its difficulty curve. A
+win rate printed here means the same thing as a win rate in the game's own
+balance table, rather than a number from a bot this repo invented.
 
 ---
 
-## The verifier
+## The engine is the real one
 
-`tools/verify_level.py` is standard-library Python with no dependencies. It
-encodes the invariants the real game enforces, so a level that passes here is
-one the game can actually load:
+`engine/` is the shipped game's duel engine, vendored whole and unmodified:
+board generation, flood and claim, cascade resolution, route planning, and the
+opponent AI. It has no external dependencies, so it bundles to 58 KB of plain
+JavaScript that runs in a browser with no framework.
 
-- **tier coverage** — every tier in `jobTiers` has a customer who works at it
-- **legal dominant modes** — one of `redirect`, `armHalt`, `armSiphon`,
-  `purge`, `lock`, `ward`, and nothing else
-- **the dash law** — no em dash or en dash in any string the player reads, a
-  hard style rule of the game's voice
-- **value ranges** — `greed`, `abilityFreq`, `slag`, `patchDrop` in 0..1; job
-  tiers on the 1-5 scale and not the 1-3 program-tier scale, which is a
-  different vocabulary in this game; grid dimensions odd
-- **envelope shape** — every proposal has an agent, a brief, and items with ids
-  and types
-- **the day opens** — exactly one day line, beginning `DAY N.`
+The dive spec pins the program layer off. `abilityFreq` is hard zero and the
+player always carries the base kit, so neither side can cast anything and what
+remains is the rotation race underneath. `engine/index.ts` is the only place
+that mapping lives, so a malformed spec cannot accidentally hand SIG-0 an
+ability.
 
-It runs after each agent as a staged check and once more over the whole level
-after the gate. It collects every problem rather than dying on the first, so a
-single run tells an agent everything it has to fix.
-
-The orchestrator is explicitly forbidden from hand-editing a proposal to make
-the verifier pass. If the output is patched by hand it is no longer the crew's
-output.
-
-A fixture with fourteen deliberate defects lives in `tests/broken-fixture/`:
+Rebuild the browser bundle after any engine change:
 
 ```bash
-python3 tools/verify_level.py --day 6 --dir tests/broken-fixture
+bun build engine/browser-entry.ts --outfile=play/engine.bundle.js \
+  --format=iife --target=browser
 ```
 
-It should exit 1 and name all fourteen.
+The board's SVG rendering and every `kp-d*` style is lifted from the shipped
+game too, so a generated dive looks like the real board rather than a mock of
+it.
 
 ---
 
-## The committed example run: `/make-level 6`
+## The committed run: `/make-dive hard 13x11`
 
-Everything under `out/` is a real run, not a mock-up. Day 6 sits at the flat
-centre of the curve, target win rate 56 percent.
+Everything under `out/` is a real run.
 
-**What each agent produced**
+| knob | value | owner |
+|---|---|---|
+| grid | 13x11 | board-architect |
+| slag | 0.18 | board-architect |
+| minCost / minPd | 26 / 8 | board-architect |
+| playerRam | 5 | pressure-designer |
+| oppRam | 6 | pressure-designer |
+| greed | 0.85 | pressure-designer |
+| headStart | 2 | pressure-designer |
 
-| agent | output |
-|---|---|
-| Arc Composer | `jobTiers [3, 3, 3]`, grid 11x9, `oppRam` 7, `greed` 0.98, `headStart` 2 |
-| Encounter Generator | Talia Vance / Aqualume reef tank controller / `redirect`; Emmett Cho / Feedrail busking amp rig / `armSiphon`; Priya Osei / Loomgate embroidery frame / `purge` |
-| Narrative Director | `"DAY 6. Three tickets, same weight today. No easy one to start on."` plus a journal entry, THREE STUBS, SAME PRICE |
-| Loremaster | 6 seen, 6 approved, 0 revised, 0 noted |
+**Claimed 37%. Measured 34.0%** over 200 seeds, a drift of 3 points, inside
+the 30-40% band `hard` asks for. Endings: core 195, severed 4, gridlock 1.
 
-**The handoffs are visible in the outputs.** The Arc Composer chose
-`jobTiers [3,3,3]` and called it "the one deliberate flat spot... a wall of
-same-weight work before day 7 introduces its first tier-4 spike." The Encounter
-Generator, reading only that array, gave all three customers overlapping tier-3
-coverage and deliberately spread their dominant modes so "day 6 does not read
-as one fight three times even though every ticket sits at the same tier." The
-Narrative Director then wrote a day line about exactly that flatness, and a
-journal entry about three ticket stubs priced identically. None of those agents
-saw the others' reasoning, only their JSON.
+The gate approved both items and raised one advisory NOTE it deliberately did
+not assign: average rounds measured 2.8, under the 3-to-6 band. Its reasoning
+is worth reading, because it is the kind of call a schema check cannot make:
 
-**The gate returned clean on this run.** Six APPROVE verdicts, so the revision
-round never fired. The loop is implemented and documented, but the committed
-run does not exercise it. What the run does show is the gate citing canon to
-justify each approval, including the bible line it checked each customer
-against.
+> the only calibrated 13x11 row in the hard win-rate band is also the one with
+> the shortest rounds; the neighboring rows that run longer land at 53.3% win
+> rate, outside the target. Advisory only, no better calibrated lever
+> combination exists in the table for this board size, so there is nothing
+> actionable to hand back.
 
-**A note on the numbers.** The Arc Composer's day 6 config reproduces the
-shipped `DAY_CONFIGS` row value for value, having derived it from the
-neighbouring days rather than copied it. That is a convergence check rather
-than new balance work: this run's genuinely new content is the three customers,
-the day line, and the journal entry. Asking for different numbers means giving
-the brief a different target win rate.
+The Pressure Designer had already flagged the same tension in its rationale
+before the simulator ran. Nothing was handed back, and the dive ships slightly
+quick with that recorded rather than hidden.
 
-**Verifier result:**
+Play it:
 
-```
-verify_level.py: level in out/proposals/
-  . tier coverage: jobTiers [3, 3, 3] all covered by 3 customers
-  . dominant spread: armSiphon x1, purge x1, redirect x1
-  OK. 2 note(s), 0 problems.
+```bash
+open out/play-hard.html
 ```
 
 ---
@@ -279,79 +230,44 @@ verify_level.py: level in out/proposals/
 ```
 kernel-panic-level-crew/
   README.md                     this file
-  ARCHITECTURE.md               diagram, data-flow rationale, failure paths
+  ARCHITECTURE.md               diagram, data flow, failure paths
   CLAUDE.md                     orients the orchestrator session
   .claude/
-    settings.json               lets the verifier run without a prompt
-    agents/                     the four agent definitions
-      level-arc-composer.md
-      level-encounter-generator.md
-      level-narrative-director.md
-      level-loremaster.md
-    skills/make-level/SKILL.md  the orchestration program behind /make-level
+    settings.json               lets the three tools run without a prompt
+    agents/                     board-architect, pressure-designer, dive-gate
+    skills/make-dive/SKILL.md   the orchestration program behind /make-dive
   reference/
-    bible.md                    canon: world, tech rules, shop, cast, voice
-    schema.md                   item shapes, engine invariants, the tier trap
-    shipped.md                  the 9-day curve, 12 shipped customers, 9 day lines
-  tools/verify_level.py         deterministic validator, stdlib only
-  tests/broken-fixture/         14 seeded defects, for checking the verifier
-  out/                          a completed run: brief, proposals, gate, level
+    difficulty.md               measured calibration table and what each knob does
+    schema.md                   proposal shapes and the assembled dive
+  engine/                       the game's duel engine, vendored
+  play/
+    engine.bundle.js            prebuilt browser bundle, committed
+    play.css                    board styles, lifted from the shipped game
+    play.js                     board renderer and turn loop
+    shell.html                  page template the build fills in
+  tools/
+    verify_dive.py              structure and ranges
+    simulate.mjs                200 dives, measured win rate
+    build_play.py               inlines everything into one openable file
+  out/                          a completed run, including a playable dive
 ```
-
-Everything the agents need is in `reference/`. Nothing in this directory reads
-or writes outside it, so it runs standalone.
-
----
-
-## Design notes
-
-**Why the agents cannot write to the game.** Agents propose structured JSON and
-a single orchestrator assembles it; a typechecker is the schema enforcer at the
-far end. Letting several agents edit a live TypeScript codebase in parallel
-produces merge damage and silent breakage, and that failure mode gets worse
-with every agent added. So the rule is set now, while the crew is small enough
-that it costs nothing: agents write JSON to `out/`, and the assembled `.ts` is
-something a human pastes.
-
-**Why two kinds of checking.** Mechanical rules — coverage, ranges, legal
-enum strings, the dash law — belong in a script, where they are instant, free,
-and cannot be argued with. Judgment — canon, voice, whether a line reveals too
-much — belongs to an agent, constrained by having to quote its source. Putting
-canon in the script would make it brittle; putting coverage in the gate would
-make it unreliable.
-
-**Why canon lives in `reference/` rather than in the game repository.** The
-agents read a versioned copy, so every run is reproducible against a fixed
-canon and the crew stays portable. The cost is a refresh when the game's
-shipped content moves, which is the right trade while the number of agents
-reading canon is still growing.
 
 ---
 
 ## Roadmap
 
-The pipeline is built to extend along two axes: more lanes beside the level
-lane, and more gates beneath the canon gate.
+The dive is the floor of the game: every other system in *Kernel Panic* sits on
+top of a rotation race, so it is the piece worth getting right first.
 
-**More lanes.** Each is a new agent producing a new item type, slotted into the
-same envelope-and-verifier contract:
-
-- an **ability designer** owning the augment catalog, proposing upgrades as
-  synergy and counter pairs rather than isolated numbers
-- a **UX and sound agent** owning screen layout, interaction feel, and the
-  sfxr presets behind every click
-- an **art director** turning the portrait and still references in
-  `reference/` into real pixel assets, so customers stop sharing six portraits
-
-**More gates.** The Loremaster asks "is it true?". The obvious second question
-is **"does the player know?"** — a teaching-coverage gate that reads every new
-mechanic, stat, screen and resource and holds back anything the player has no
-way to learn. It would gate the same artifacts the Loremaster does, and either
-one could stop an item.
-
-**Deeper verification.** `verify_level.py` checks that a level is well formed.
-The next step is checking that it is well *balanced*: running the day against
-the game's simulation harness over a few hundred seeds and reporting the actual
-win rate against the Arc Composer's `targetWinPct`. That turns the target from
-an argument into a measurement, and it closes the loop — a day that misses its
-number goes back to the Arc Composer with the real distribution attached.
+- **Programs.** The engine already implements SCAN, ATTACK and DEFEND with six
+  modes between them. Unpinning `abilityFreq` and adding an agent that designs
+  the intrusion's mode kit turns the race into a fight.
+- **Loadout.** Eighteen augments ship in the engine. A loadout agent choosing
+  the player's answer to a given intrusion is the natural fourth seat.
+- **Tuning loop.** The simulator currently reports and the gate assigns blame.
+  Feeding the measured number straight back to the Pressure Designer and
+  re-running until it converges makes the target self-correcting.
+- **Boards worth remembering.** `minCost` and `slag` produce texture by
+  accident. An agent that reads a generated board and judges whether it is
+  interesting, rather than merely fair, would close the last gap between a
+  correct dive and a good one.

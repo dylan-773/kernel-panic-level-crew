@@ -1,8 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python3 tools/verify_level.py:*)",
-      "Bash(python3 ./tools/verify_level.py:*)"
+      "Bash(python3 tools/verify_dive.py:*)",
+      "Bash(python3 tools/build_play.py:*)",
+      "Bash(node tools/simulate.mjs:*)"
     ]
   }
 }

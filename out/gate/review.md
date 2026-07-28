@@ -1,17 +1,12 @@
-# Level gate: day 6
+# Dive gate: hard
 
-## arc-composer.json
-- day-6: APPROVE - every value matches the shipped day 6 row of DAY_CONFIGS exactly (grid 11x9, oppRam 7, greed 0.98, abilityFreq 0.60, minCost 20, minPd 10, headStart 2, parFlat 3, slag 0.22, patchDrop 0.16, jobTiers [3,3,3], target 56), and jobTiers stays on the job/customer 1-5 scale, not the program 1-3 scale.
+## board-architect.json
+- board: APPROVE - 13x11 matches the brief's explicit ask, slag stays at the shipped default of 0.18 (the calibration table's 13x11 rows are all taken at slag 0.18, per reference/difficulty.md), and minCost 26 is exactly `2 x width` as the guideline recommends ("roughly `2 x width` is a reasonable ask"). This lands the board squarely on the table's calibrated 13x11/oppRam 6/headStart 2 row rather than an extrapolated shape, and the simulator's 34.0% measured result confirms that row behaves as documented. No scope creep (no programs, abilities, loadout, customer, or story in the proposal).
 
-## encounter-generator.json
-- talia-vance: APPROVE - Aqualume reef tank controller is a new device concept and brand, not a duplicate of any of the twelve shipped regulars; both quotes are about her own tank, nothing about the shop, Patch, Dad, or the back room.
-- emmett-cho: APPROVE - Feedrail busking amp rig is a new device and brand; dominant armSiphon and both quotes describe the rig itself, no reveal of anything the bible reserves ("Nothing a customer says may reveal anything about Patch, Dad, or the back room.").
-- priya-osei: APPROVE - Loomgate embroidery frame is a new device and brand; quotes, win line, and loss line stay on the jacket and the intrusion, consistent with "The customer is fond of the device; the intrusion is a betrayal, not an inconvenience."
+## pressure-designer.json
+- pressure: APPROVE - targetWinPct 37 vs. measured 34.0% is a drift of -3.0, well inside the tolerance difficulty.md sets ("A dive that measures more than 15 points off its target fails the verifier"). oppRam 6 and headStart 2 is the exact calibrated row difficulty.md lists at 37.5% for 13x11, and the rationale correctly shows this is not double-counting: neither lever is maxed (oppRam tops out at 8, headStart at 4), and the neighboring rows the proposal cites (oppRam 6/headStart 0 -> 53.3%, oppRam 5/headStart 2 -> 53.3%) demonstrate both levers are needed together to reach the hard band, not that either alone is being stacked to an extreme. No scope creep.
 
-## narrative-director.json
-- day-6: APPROVE - opens "DAY 6.", one clipped mechanical-nudge sentence pair reflecting the flat jobTiers [3,3,3], reveals nothing about the tower or the family.
-- three-stubs-same-price: APPROVE - stays inside what the player is allowed to know: the Meridian balance is already-established, ordinary weight ("Debt: the Meridian balance alone is more than the shop clears in a year"), Rhea's characterization matches her voice ("dry, protective, deflects feeling into logistics"), and the entry never touches the back room, the tower, Patch, or Dad's illness.
+## simulation
+- rounds: NOTE - avg rounds measures 2.8, under the "3 to 6 rounds" band difficulty.md sets for a dive, though still above the 2-round floor where difficulty.md says a dive "is over before the player has read the board." The pressure-designer's own rationale flags this ("a touch under the 3-6 round guideline") and shows the only calibrated 13x11 row in the hard win-rate band (oppRam 6/headStart 2) is also the one with the shortest rounds; the neighboring rows that run longer land at 53.3% win rate, outside the target. Advisory only — no better calibrated lever combination exists in the table for this board size, so there is nothing actionable to hand back.
 
-No em dash or en dash found in any player-facing string across all three proposals.
-
-Seen 6, approved 6, revised 0, noted 0.
+Seen 3, approved 2, revised 0, noted 1.

@@ -1,9 +1,0 @@
-{
-  "agent": "narrative-director",
-  "brief": "level-6",
-  "items": [
-    { "type": "dayline", "id": "day-6", "day": 6, "text": "Day six begins." },
-    { "type": "journal", "id": "bench", "unlockAtRun": "three", "kind": "diary",
-      "title": "bench hours", "date": "", "body": [] }
-  ]
-}

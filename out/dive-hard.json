@@ -1,0 +1,15 @@
+{
+  "id": "hard",
+  "difficulty": "hard",
+  "seed": 1,
+  "grid": [13, 11],
+  "playerRam": 5,
+  "oppRam": 6,
+  "greed": 0.85,
+  "minCost": 26,
+  "minPd": 8,
+  "headStart": 2,
+  "slag": 0.18,
+  "parFlat": 3,
+  "targetWinPct": 37
+}

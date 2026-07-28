@@ -1,106 +1,120 @@
 # Architecture
 
-Four agents, one shared reference set, one deterministic verifier, one gate
-with a revision loop.
+Three agents, one measured reference table, one deterministic verifier, one
+simulator that plays the dive 200 times, and a build step that turns the
+result into a page you can open.
 
 ## Diagram
 
 ```mermaid
 flowchart TD
-    U(["User: /make-level 6"]) --> O["Orchestrator<br/>.claude/skills/make-level<br/>spawns agents, carries handoffs"]
-    O --> B[/"out/BRIEF.md<br/>day, target win rate, scope"/]
+    U(["/make-dive hard 13x11"]) --> O["Orchestrator<br/>.claude/skills/make-dive"]
+    O --> B[/"out/BRIEF.md<br/>difficulty, target win rate, grid"/]
 
-    REF[("reference/<br/>bible.md · schema.md · shipped.md")]
+    REF[("reference/<br/>difficulty.md · schema.md")]
 
-    B --> AC["1 · Arc Composer<br/>in: day, target win rate<br/>out: dayconfig-delta"]
-    AC -->|"jobTiers [3,3,3]"| EG["2 · Encounter Generator<br/>in: the day's job tiers<br/>out: customer profiles"]
-    EG -->|"customers + devices"| ND["3 · Narrative Director<br/>in: day config, customers<br/>out: dayline + journal"]
-    AC -->|"day config"| ND
+    B --> BA["1 · Board Architect<br/>in: difficulty, optional grid<br/>out: grid, slag, route length"]
+    BA -->|"grid 13x11"| PD["2 · Pressure Designer<br/>in: the board<br/>out: RAM both sides, greed,<br/>head start, target win %"]
 
-    REF -.->|"canon, schema, shipped roster"| AC
-    REF -.-> EG
-    REF -.-> ND
-    REF -.-> LM
+    REF -.->|"measured calibration table"| BA
+    REF -.-> PD
+    REF -.-> GT
 
-    AC --> P[("out/proposals/*.json")]
-    EG --> P
-    ND --> P
+    BA --> P[("out/proposals/*.json")]
+    PD --> P
+    P --> V{{"verify_dive.py<br/>shape, ranges, odd grid, scope"}}
+    V -->|"malformed"| BA
+    V -->|"out of range"| PD
+    V -->|"clean"| ASM["assemble<br/>out/dive-hard.json"]
 
-    P --> V1{{"verify_level.py --stage<br/>run after each agent"}}
-    V1 -->|"malformed"| AC
-    V1 -->|"tier gap"| EG
-    V1 -->|"bad copy shape"| ND
-    V1 -->|"clean"| LM
+    ASM --> SIM{{"simulate.mjs<br/>200 dives, engine's own bot"}}
+    SIM --> SR[/"out/sim.txt<br/>measured win rate vs claim"/]
 
-    LM["4 · Loremaster<br/>in: all proposals + bible<br/>out: APPROVE / REVISE per item"]
-    LM --> G[/"out/gate/review.md<br/>every REVISE quotes a bible line"/]
+    SR --> GT["3 · Dive Gate<br/>in: proposals + measurement<br/>out: APPROVE / REVISE per item"]
+    GT --> G[/"out/gate/review.md"/]
 
-    G -->|"REVISE + citation"| RV{"revision round<br/>max 1"}
-    RV -->|"re-run only the owning agent"| AC
-    RV -->|"re-run only the owning agent"| EG
-    RV -->|"re-run only the owning agent"| ND
-    RV -->|"still contested after round 2"| DROP(["dropped, reported to user"])
+    G -->|"REVISE, names the owning agent"| RV{"revision round<br/>max 1"}
+    RV --> BA
+    RV --> PD
 
-    G -->|"all APPROVE"| V2{{"verify_level.py<br/>full pass"}}
-    V2 -->|"exit 1, gap named"| RV
-    V2 -->|"exit 0"| OUT[/"out/level-6.json<br/>out/level-6.ts"/]
-    OUT --> GAME(["paste into Kernel Panic:<br/>arc.ts · customers.ts · story.ts · journal.ts"])
+    G -->|"all APPROVE"| BLD["build_play.py<br/>inline spec + engine + board"]
+    BLD --> PLAY(["out/play-hard.html<br/>open it and play"])
 ```
 
 ## Why the data flows this way
 
-The pipeline is sequential because each agent's output is literally the next
-one's input, not because sequencing is tidy.
+**Board Architect first.** Every pressure number means something different on a
+different grid. `oppRam` 5 is a fair fight on 13x11 and a rout on 9x7, because
+the smaller board gives SIG-0 a shorter route to shorten further. The Pressure
+Designer cannot size its numbers without knowing the board, so the board is
+decided first and handed down explicitly.
 
-**Arc Composer first.** Its `jobTiers` array is the only thing that tells the
-Encounter Generator what to build. Three tiers means three tickets, and each
-distinct tier needs somebody who works at it. Run the Encounter Generator first
-and it is inventing customers for a day that does not exist yet.
+**Simulator before the gate.** The gate's most useful question is "does the
+measurement match the claim?", and it cannot ask that until something has
+measured. Running the simulator first means the gate reviews a dive that has
+already been played 200 times rather than one that only looks reasonable.
 
-**Encounter Generator second.** The Narrative Director's day line is supposed
-to notice what walks in the door. It cannot do that before anybody walks in.
+**Gate last, over everything.** A per-agent gate would miss the failure that
+matters most here: two agents each making a defensible choice that combine into
+a dive decided at board generation. A high `headStart` is fine. A high `oppRam`
+is fine. Together they are frequently not a difficulty setting at all.
 
-**Narrative Director third.** It reads both prior outputs: the numbers tell it
-what the day feels like mechanically, the customers tell it who the day is
-about. Its output is the only thing here the player reads as authored prose
-rather than as a fight.
+## Three kinds of checking
 
-**Loremaster last, over everything.** A gate that ran per-agent would miss the
-things that are only wrong in combination: two customers with the same verbal
-tic, a day line that promises a tone the roster does not deliver.
+They are deliberately different mechanisms.
 
-## The two kinds of checking
+| | `verify_dive.py` | `simulate.mjs` | Dive Gate |
+|---|---|---|---|
+| asks | is it well formed? | is it a contest? | is it worth playing? |
+| kind | stdlib Python, instant | the real engine, 200 dives | an agent with judgment |
+| catches | out-of-range knobs, even grid dimensions, missing rationale, out-of-scope keys | unwinnable dives, uncontested dives, claims more than 15 points off | double-counted levers, a dive over in two rounds, a claim the board never supported |
+| verdict | exit 0 / exit 1 with the problem named | exit 0 / exit 1 with the measured number | APPROVE, REVISE citing a number, or advisory NOTE |
+| arguable | no | no | only with a citation |
 
-They are deliberately different mechanisms, and the split is the point.
+Mechanical rules live in the script, where they are instant and cannot be
+talked out of a verdict. Empirical questions go to the simulator, which settles
+them by playing the game rather than reasoning about it. Judgment goes to the
+agent, constrained by having to cite one of the other two.
 
-| | `verify_level.py` | Loremaster |
-|---|---|---|
-| asks | can the game load this? | is this true? |
-| kind | deterministic Python | an agent with judgment |
-| catches | tier coverage gaps, illegal mode strings, out-of-range values, em dashes, malformed envelopes | canon contradictions, reveals ahead of schedule, duplicated devices, voice drift |
-| verdict | exit 0 or exit 1 with the gap named | APPROVE, REVISE with a quoted line, or NOTE |
-| can be argued with | no | it must cite the bible, or it may only advise |
-
-Mechanical rules go in the script, where they are cheap, instant, and cannot be
-talked out of a verdict. Judgment goes to the agent, which is constrained by
-having to quote its source. A REVISE that cannot cite a bible line is
-downgraded to an advisory NOTE, which keeps the gate from becoming an
-unfalsifiable second opinion.
+The scope check is in the Python because it is the rule most likely to erode.
+A dive is a grid, RAM and turns; a proposal carrying `augments`, `dominant`, or
+`abilityFreq` is reaching for a different game, and that is caught structurally
+rather than left to review.
 
 ## Failure paths
 
-Nothing in this pipeline fails silently.
+Nothing here fails silently.
 
 - **Malformed proposal** — the staged verifier catches it before the next agent
-  wastes a turn reading garbage. The owning agent is re-run with the exact
-  error text.
-- **Tier coverage gap** — caught at stage 2. This is the one that would crash
-  the real game at ticket generation, so it is checked mechanically rather than
-  left to review.
-- **Canon break** — caught at the gate, sent back to exactly one agent with the
-  citation, re-gated once.
-- **Still contested after one revision round** — the item is dropped from the
-  level and named in the run summary. It is never integrated quietly.
-- **Verifier fails after the gate** — the run stops. The orchestrator is
-  explicitly forbidden from hand-editing a proposal to make the verifier pass,
-  because at that point the output would no longer be the crew's.
+  reads garbage. The owning agent re-runs with the exact error text.
+- **Out-of-range knob** — same, with the workable range named. `slag` above
+  0.25 is the common one: the board generator starts failing to find a fair
+  layout at all.
+- **Unwinnable or uncontested dive** — the simulator exits non-zero. These are
+  the only two outcomes it refuses outright, because neither is a difficulty
+  setting.
+- **Claim far from measurement** — the simulator reports the drift and the gate
+  assigns it to the Pressure Designer, which is always the agent that made the
+  prediction. The board is never at fault for a bad claim about it.
+- **Still contested after one revision round** — the dive ships with the
+  objection recorded in the run report. It is never quietly dropped.
+- **`node` unavailable** — the run continues and the report says the dive
+  shipped unmeasured, rather than pretending a number exists.
+
+## The playable page
+
+`build_play.py` inlines four things into `play/shell.html`: the dive spec, the
+58 KB engine bundle, the board stylesheet, and the renderer. The result is one
+file with no external references at all.
+
+That constraint is not tidiness. A browser refuses to load ES modules or fetch
+JSON over `file://`, so anything left external would mean needing a web server.
+Inlining is what makes `open out/play-hard.html` work by double-clicking, which
+is the whole point of the deliverable.
+
+The renderer is about 300 lines of plain DOM code. It draws `DuelState` as SVG
+and sends exactly two things back to the engine: `rotate` with a cell index,
+and `endTurn`. Everything else, including the flood, the cascade, the claim
+ordering and SIG-0's entire turn, happens inside the vendored engine. The
+opponent steps on a 260 ms timer rather than resolving instantly, so a cascade
+is something you watch happen instead of something you find already done.

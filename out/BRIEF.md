@@ -1,8 +1,8 @@
-# Brief: level-6
+# Brief: dive-hard
 
-- **id**: level-6
-- **day**: 6
-- **target win rate**: 56 (from the curve table in reference/shipped.md)
-- **customers**: 3
-- **scope**: one working day. Difficulty config, customers covering the day's
-  job tiers, one day line, one journal entry. No abilities, no art, no sound.
+- **id**: hard
+- **difficulty**: hard
+- **target win rate**: 30-40%
+- **grid**: 13x11 (explicit, given at invocation)
+- **scope**: one dive. A grid, RAM, and turns. No programs, no abilities,
+  no loadout, no customer, no story.

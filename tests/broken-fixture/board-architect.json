@@ -1,0 +1,8 @@
+{
+  "agent": "board-architect",
+  "brief": "dive-broken",
+  "items": [
+    { "type": "board", "id": "board",
+      "grid": [12, 11], "slag": 0.4, "minCost": 26, "minPd": 8, "parFlat": 3 }
+  ]
+}

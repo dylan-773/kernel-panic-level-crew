@@ -1,0 +1,16 @@
+{
+  "agent": "pressure-designer",
+  "brief": "hard",
+  "notes": "Board is fixed at 13x11, slag 0.18, minCost 26 (=2x13) by the architect, so the 13x11 rows of the calibration table apply directly with no extrapolation needed.",
+  "items": [
+    {
+      "type": "pressure", "id": "pressure",
+      "playerRam": 5,
+      "oppRam": 6,
+      "greed": 0.85,
+      "headStart": 2,
+      "targetWinPct": 37,
+      "rationale": "Hard asks for 30-40%. The measured 13x11 row at oppRam 6 / headStart 2 gives 37.5% win rate, dropping straight into the band with no interpolation. The neighboring 13x11 rows confirm the levers needed to get there: oppRam 6 / headStart 0 (53.3%) and oppRam 5 / headStart 2 (53.3%) both land in the normal band instead, so both oppRam at 6 and headStart at 2 are required together, not either alone, matching the brief's compounding note. playerRam stays at 5 (shipped default) and greed stays at 0.85 (the table's baseline, competent but not merciless) since the exact row already lands on target. Avg rounds for this row measure 2.8, a touch under the 3-6 round guideline but the nearest available levers on this board (oppRam 6, headStart 2) are already the ones the table ties to the hard band; softening either would push win rate into the 45-53% range instead."
+    }
+  ]
+}

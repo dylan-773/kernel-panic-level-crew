@@ -1,0 +1,10 @@
+{
+  "agent": "pressure-designer",
+  "brief": "dive-broken",
+  "items": [
+    { "type": "pressure", "id": "pressure",
+      "playerRam": 5, "oppRam": 14, "greed": 1.7, "headStart": 2,
+      "targetWinPct": 37, "augments": ["longArms"], "dominant": "redirect",
+      "rationale": "" }
+  ]
+}
