@@ -1,8 +1,8 @@
-# KERNEL PANIC - SETTING BIBLE (level-crew snapshot)
+# KERNEL PANIC - SETTING BIBLE
 
 Canon for this crew. The Loremaster gates against this file and must quote a
-line from it to issue a REVISE. Condensed from the full project bible; trimmed
-to what a level author needs.
+line from it to issue a REVISE, so every ruling a level rests on has to be
+written down here first. It grows as the crew reaches new content.
 
 ## The world
 

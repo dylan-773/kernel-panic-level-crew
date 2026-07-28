@@ -19,16 +19,19 @@ have to agree with each other:
 3. the **day line** that opens the day on the terminal
 4. a **DAD.LOG journal entry** unlocked around that point in the run
 
-Four agents produce those four things in sequence, a fifth pass gates them for
+Three agents produce those four things in sequence, a fourth gates them for
 canon, and a deterministic script verifies the result against the invariants
 the real game enforces. Output lands as `out/level-<n>.json` and
 `out/level-<n>.ts`, the latter formatted to paste straight into the game's
 `arc.ts`, `customers.ts`, `story.ts` and `journal.ts`.
 
-This directory is a deliberately narrow slice of a larger nine-agent crew that
-produces all content for the game. That crew depends on paid image-generation
-connectors, so this submission is cut down to the level-authoring lane and runs
-on Claude alone: core file tools, no MCP servers, no API key, no install step.
+The crew starts at the level-authoring lane because that lane touches every
+other one: difficulty, cast, and copy all have to agree before anything else in
+the game can be built on top of them. The architecture is designed to grow from
+here, and the roadmap at the end of this file says where it goes next.
+
+It runs on Claude alone. Core file tools, no MCP servers, no API key, no
+install step, nothing to configure.
 
 ---
 
@@ -302,12 +305,13 @@ or writes outside it, so it runs standalone.
 
 ## Design notes
 
-**Why the agents cannot write to the game.** In the parent project the rule is
-that agents propose structured JSON and a single orchestrator integrates it by
-hand, with a typechecker as the schema enforcer. Nine agents editing a live
-TypeScript codebase in parallel produces merge damage and silent breakage. The
-same rule holds here in miniature: agents write JSON to `out/`, and the
-assembled `.ts` file is something a human pastes.
+**Why the agents cannot write to the game.** Agents propose structured JSON and
+a single orchestrator assembles it; a typechecker is the schema enforcer at the
+far end. Letting several agents edit a live TypeScript codebase in parallel
+produces merge damage and silent breakage, and that failure mode gets worse
+with every agent added. So the rule is set now, while the crew is small enough
+that it costs nothing: agents write JSON to `out/`, and the assembled `.ts` is
+something a human pastes.
 
 **Why two kinds of checking.** Mechanical rules — coverage, ranges, legal
 enum strings, the dash law — belong in a script, where they are instant, free,
@@ -316,13 +320,38 @@ much — belongs to an agent, constrained by having to quote its source. Putting
 canon in the script would make it brittle; putting coverage in the gate would
 make it unreliable.
 
-**Why the reference set is a snapshot.** The agents read `reference/`, not the
-game repository. That makes this directory portable and makes every run
-reproducible against a fixed canon, at the cost of needing a refresh when the
-game's shipped content moves.
+**Why canon lives in `reference/` rather than in the game repository.** The
+agents read a versioned copy, so every run is reproducible against a fixed
+canon and the crew stays portable. The cost is a refresh when the game's
+shipped content moves, which is the right trade while the number of agents
+reading canon is still growing.
 
-**What was cut.** The full crew also runs an ability designer, a UX and sound
-agent, an art director backed by an image generation service, a teaching-
-coverage gate that asks "does the player know what this is?", and a validation
-agent that runs the game's simulation harnesses over 200 seeds. None of that is
-here. This is the level lane only.
+---
+
+## Roadmap
+
+The pipeline is built to extend along two axes: more lanes beside the level
+lane, and more gates beneath the canon gate.
+
+**More lanes.** Each is a new agent producing a new item type, slotted into the
+same envelope-and-verifier contract:
+
+- an **ability designer** owning the augment catalog, proposing upgrades as
+  synergy and counter pairs rather than isolated numbers
+- a **UX and sound agent** owning screen layout, interaction feel, and the
+  sfxr presets behind every click
+- an **art director** turning the portrait and still references in
+  `reference/` into real pixel assets, so customers stop sharing six portraits
+
+**More gates.** The Loremaster asks "is it true?". The obvious second question
+is **"does the player know?"** — a teaching-coverage gate that reads every new
+mechanic, stat, screen and resource and holds back anything the player has no
+way to learn. It would gate the same artifacts the Loremaster does, and either
+one could stop an item.
+
+**Deeper verification.** `verify_level.py` checks that a level is well formed.
+The next step is checking that it is well *balanced*: running the day against
+the game's simulation harness over a few hundred seeds and reporting the actual
+win rate against the Arc Composer's `targetWinPct`. That turns the target from
+an argument into a measurement, and it closes the loop — a day that misses its
+number goes back to the Arc Composer with the real distribution attached.
